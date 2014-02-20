@@ -6,11 +6,7 @@ import signal
 
 
 class ServerBase(ComponentBase):
-    # server_cwd = None
-
-    def __init__(self, env):
-        self._env = env
-        super(ServerBase, self).__init__()
+    server_cwd = None
 
     def start(self, bin=None, args=None, cwd=None):
         if not bin:

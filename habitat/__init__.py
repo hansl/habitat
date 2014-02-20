@@ -2,5 +2,6 @@
 from habitat import Habitat
 from habitat import NullHabitat
 
-from server import *
+from component import *
 from environment import *
+from server import *

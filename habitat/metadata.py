@@ -108,3 +108,6 @@ class MetaDataFile(object):
 
     def __setitem__(self, name, value):
         self.storage[name] = value
+
+    def save(self):
+        self.storage.save()

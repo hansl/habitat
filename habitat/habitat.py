@@ -1,16 +1,27 @@
 # Copyright (C) 2013 Coders at Work
 from component import ComponentBase
 from dictionary import Dictionary
+from dependency import order_dependencies
+from metadata import MetaDataFile
 from server import ServerBase
 
 import datetime
 import getpass
 import inspect
 import os
+import pty
 import re
+import select
 import subprocess
 import sys
 import threading
+
+
+try:
+    from Queue import Queue, Empty
+except ImportError:
+    # python 3.x
+    from queue import Queue, Empty
 
 
 class NullHabitat(object):
@@ -26,6 +37,7 @@ class Habitat(Dictionary):
     user = getpass.getuser()
     home = os.path.expanduser("~")
     habitat_root = '%(home)s/.habitats/%(habitat_name)s'
+    metadata_path = '%(habitat_root)s/metadata'
 
     class __ShouldThrow(object):
         pass
@@ -34,27 +46,41 @@ class Habitat(Dictionary):
         self.habitat_name = self.__class__.__name__
         super(Habitat, self).__init__()
         self._args = args
+        self.metadata = MetaDataFile(self['metadata_path'])
 
-        for component in self._components():
+        for name, component in self._components():
             component.habitat = self
+            if 'name' not in component:
+                component.name = name
+            if component.name not in self.metadata:
+                self.metadata[component.name] = {}
+            component.metadata = self.metadata[component.name]
 
         if should_start:
-            self._start()
+            if self._args:
+                command = self._args[0]
+            else:
+                command = 'run'
+            getattr(self, command)(*self._args[1:])
 
     def _components(self):
-        for name in dir(self):
-            if name.startswith('_'):
-                continue
-            value = getattr(self, name)
-            if isinstance(value, ComponentBase):
-                yield value
+        all_components = [
+            name
+            for name in dir(self)
+            if not name.startswith('_') and isinstance(getattr(self, name), ComponentBase)
+        ]
+
+        ordered_components = order_dependencies({
+                name: getattr(self, name).deps or []
+                for name in all_components
+            })
+
+        for c in ordered_components:
+            yield (c, getattr(self, c))
+
 
     def _start(self):
-        if self._args:
-            command = self._args[0]
-        else:
-            command = 'run'
-        getattr(self, command)(*self._args[1:])
+        pass
 
     def run(self, *args):
         if 0 == len(args):
@@ -65,6 +91,7 @@ class Habitat(Dictionary):
             if isinstance(server, basestring):
                 server = self[server]
             server.start()
+
         print 'Waiting for CTRL-C'
         try:
             while True:
@@ -77,12 +104,10 @@ class Habitat(Dictionary):
                 server = self[server]
             server.stop()
 
+        self.metadata.storage.save()
+
     def runall(self):
-        return self.run(*[
-            self[name]
-            for name in dir(self)
-            if isinstance(getattr(self, name), ServerBase)
-            ])
+        return self.run(*[p[1] for p in self._components()])
 
     # Execution of commands.
     def __open_process(self, logger, cmd, env, cwd, **kwargs):
@@ -95,63 +120,66 @@ class Habitat(Dictionary):
                         logger.info('  %-20s = %s' % (key,val))
             logger.info('With CWD: %s' % (cwd or os.getcwd()))
             logger.info('-' * 100)
+
+        # provide tty to enable line buffering.
+        master_out_fd, slave_out_fd = pty.openpty()
+        master_err_fd, slave_err_fd = pty.openpty()
+
         process = subprocess.Popen(
             cmd,
             cwd=cwd,
             env=env,
             shell=False,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            bufsize=1,
+            stderr=slave_err_fd,
+            stdout=slave_out_fd,
+            close_fds=True,
             **kwargs)
-        return process
+        return (process, (master_out_fd, slave_out_fd), (master_err_fd, slave_err_fd))
 
     def __exec_thread_main(self, logger, process, stdoutFn=None, endFn=None, errFn=None):
-        def _stdout(msg, *args):
+        def _stdout(msg):
             if stdoutFn:
-                stdoutFn(msg, *args)
+                stdoutFn(msg)
             if logger:
-                logger.info(msg, *args)
-            print 'OUT: ', msg
+                logger.info(msg)
+            print 'OUT: %s' % (msg,)
         def _stderr(msg, *args):
             if logger:
                 logger.error(msg, *args)
-            print 'ERR: ', msg
+            print 'ERR: %s' % (msg,)
 
         try:
-            out = ''
-            err = ''
-            while process.poll() is None:
-                out += process.stdout.read(1024)
-                err += process.stdout.read(1024)
-                if re.search(r'\n', out):
-                    out_lines = out.split('\n')
-                    for line in out_lines:
-                        _stdout(str(line))
-                    if out[-1] == '\n':
-                        out = ''
-                    else:
-                        out = out_lines[-1]
+            process, out_fd, err_fd = process
 
-                if re.search(r'\n', err):
-                    err_lines = err.split('\n')
-                    for line in err_lines:
-                        stderr(str(line))
-                    if err[-1] == '\n':
-                        err = ''
-                    else:
-                        err = err_lines[-1]
+            master_out_fd, slave_out_fd = out_fd
+            master_err_fd, slave_err_fd = err_fd
+            inputs = [master_out_fd, master_err_fd]
 
-            _stdout('%s' % out.rstrip())
-            _stderr('%s' % err.rstrip())
+            while True:
+                readables, _, _ = select.select(inputs, [], [], 0.1)
+                for fd in readables:
+                    if fd == master_out_fd:
+                        data = os.read(master_out_fd, 1024)
+                        for line in data.rstrip().split('\n'):
+                            _stdout(line)
+                    elif fd == master_err_fd:
+                        data = os.read(master_err_fd, 1024)
+                        for line in data.rstrip().split('\n'):
+                            _stderr(line)
 
-            stdoutdata, stderrdata = process.communicate()
-            for out in stdoutdata.split('\n'):
-                _stdout('%s' % out.rstrip())
-            for err in stderrdata.split('\n'):
-                _stderr('%s' % err.rstrip())
+                if process.poll() is not None:
+                    # We're done.
+                    break
+
         except Exception, e:
+            print e
             if errFn:
                 errFn(e)
+
+        for fd in inputs + [slave_out_fd, slave_err_fd]:
+            os.close(fd)
+        process.wait()
 
         if endFn:
             endFn(process.returncode)
@@ -162,12 +190,13 @@ class Habitat(Dictionary):
             target=self.__exec_thread_main,
             args=(logger, process, stdoutFn))
         thread.start()
-        return (thread, process)
+        return (thread, process[0])
 
     def __exec(self, logger, cmd, env={}, cwd=None, **kwargs):
-        self.__stdout = ''
-        def pipeStdout(msg, *args):
-            self.__stdout += msg % args
+        # We can use a local variable since we are joining the thread after.
+        self.__stdout = []
+        def pipeStdout(msg):
+            self.__stdout.append(msg)
 
         thread, process = self.__exec_thread(
             logger,
@@ -178,6 +207,8 @@ class Habitat(Dictionary):
             **kwargs)
         thread.join()
 
+        stdout = '\n'.join(self.__stdout)
+        self.__stdout = None
         return (process.returncode, stdout)
 
     def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
@@ -195,6 +226,5 @@ class Habitat(Dictionary):
            STDOUT/STDERR to the local logs. The tool is ran in a separate
            thread.
         """
-        # component = self.component_from_stack()
         return self.__exec_thread(kwargs.get('logger', None), cmd, env, cwd)
 
