@@ -38,7 +38,12 @@ class Dictionary(object):
                 key % context: self._format_value(value, context)
                 for key, value in value.iteritems()
             }
-        elif isinstance(value, (types.FunctionType, types.BuiltinFunctionType, types.MethodType, types.BuiltinMethodType, types.UnboundMethodType)):
+        elif isinstance(value, (
+                types.FunctionType,
+                types.BuiltinFunctionType,
+                types.MethodType,
+                types.BuiltinMethodType,
+                types.UnboundMethodType)):
             return self._format_value(value(), context)
         else:
             return value
@@ -78,6 +83,9 @@ class Dictionary(object):
                 return default
 
         else:
+            if self.__parent and name in self.__parent:
+                return self.__parent._resolve_value(name, self.__parent,
+                                                    context, default)
             return self._format_value(value, context)
 
     def __contains__(self, name):

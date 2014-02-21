@@ -2,6 +2,7 @@
 from component import ComponentBase
 from dictionary import Dictionary
 from dependency import order_dependencies
+from environment import NullEnvironment, SystemEnvironment
 from metadata import MetaDataFile
 from server import ServerBase
 
@@ -24,16 +25,11 @@ except ImportError:
     from queue import Queue, Empty
 
 
-class NullHabitat(object):
-    def __contains__(self, name):
-        raise Exception('Cannot find variable "%s".' % (name,))
-    def __getitem__(self, name):
-        raise Exception('Cannot find variable "%s".' % (name,))
-    def __setitem__(self, name, value):
-        raise Exception('Cannot find variable "%s".' % (name,))
-
-
 class Habitat(Dictionary):
+    system_env = SystemEnvironment()
+    null_env = NullEnvironment()
+    default_env = SystemEnvironment()
+
     user = getpass.getuser()
     home = os.path.expanduser("~")
     habitat_root = '%(home)s/.habitats/%(habitat_name)s'
@@ -46,9 +42,20 @@ class Habitat(Dictionary):
         self.habitat_name = self.__class__.__name__
         super(Habitat, self).__init__()
         self._args = args
-        self.metadata = MetaDataFile(self['metadata_path'])
 
-        for name, component in self._components():
+        metadata_path = self['metadata_path']
+        if not os.path.exists(os.path.dirname(metadata_path)):
+            os.makedirs(os.path.dirname(metadata_path))
+        self.metadata = MetaDataFile(metadata_path)
+
+        all_components = [
+            name
+            for name in dir(self)
+            if (not name.startswith('_')
+                and isinstance(getattr(self, name), ComponentBase))
+        ]
+        for name in all_components:
+            component = getattr(self, name)
             component.habitat = self
             if 'name' not in component:
                 component.name = name
@@ -61,17 +68,21 @@ class Habitat(Dictionary):
                 command = self._args[0]
             else:
                 command = 'run'
-            getattr(self, command)(*self._args[1:])
+            self.command(command, *self._args[1:])
+
+    def command(self, command, *args):
+        getattr(self.Commands, command)(self, *args)
 
     def _components(self):
         all_components = [
             name
             for name in dir(self)
-            if not name.startswith('_') and isinstance(getattr(self, name), ComponentBase)
+            if (not name.startswith('_')
+                and isinstance(getattr(self, name), ComponentBase))
         ]
-
         ordered_components = order_dependencies({
-                name: getattr(self, name).deps or []
+                name: (  [dep.name for dep in getattr(self, name).deps]
+                       + ([getattr(self, name)._env.name]) if getattr(self, name)._env else [])
                 for name in all_components
             })
 
@@ -82,32 +93,37 @@ class Habitat(Dictionary):
     def _start(self):
         pass
 
-    def run(self, *args):
-        if 0 == len(args):
-            self.runall()
-            return
+    class Commands:
+        @staticmethod
+        def run(habitat, *args):
+            if 0 == len(args):
+                habitat.command('runall')
+                return
 
-        for server in args:
-            if isinstance(server, basestring):
-                server = self[server]
-            server.start()
+            for server in args:
+                if isinstance(server, basestring):
+                    server = habitat[server]
+                server.start()
 
-        print 'Waiting for CTRL-C'
-        try:
-            while True:
-                sys.stdin.readlines()
-        except KeyboardInterrupt:
-            pass
+            print 'Waiting for CTRL-C'
+            try:
+                while True:
+                    sys.stdin.readlines()
+            except KeyboardInterrupt:
+                pass
 
-        for server in args:
-            if isinstance(server, basestring):
-                server = self[server]
-            server.stop()
+            for server in args:
+                if isinstance(server, basestring):
+                    server = habitat[server]
+                server.stop()
 
-        self.metadata.storage.save()
+            habitat.metadata.storage.save()
 
-    def runall(self):
-        return self.run(*[p[1] for p in self._components()])
+        @staticmethod
+        def runall(habitat):
+            if not habitat._components():
+                raise Exception('No components registered.')
+            habitat.command('run', *[p for n, p in habitat._components()])
 
     # Execution of commands.
     def __open_process(self, logger, cmd, env, cwd, **kwargs):
@@ -173,7 +189,7 @@ class Habitat(Dictionary):
                     break
 
         except Exception, e:
-            print e
+            print 'EXCEPTION: ', e
             if errFn:
                 errFn(e)
 

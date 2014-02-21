@@ -1,55 +1,26 @@
 # Copyright (C) 2014 Coders at Work
 from component import ComponentBase
-from habitat import NullHabitat
 
 import os
 import sys
 
 
-class NullEnvironment(object):
+DEFAULT_ENVIRONMENT = {
+    'IS_HABITAT': 'true'
+}
+
+
+class NullEnvironment(ComponentBase):
     """An empty environment."""
-    def install(self):
-        pass
     def build_environment(self):
         return {}
     def find_binary(self, name):
         return None
 
 
-class SystemEnvironment(ComponentBase):
-    """The most basic environment.
-
-    By default, every environment inherits from this one. It is the environment
-    in which Habitat itself runs. Not that Habitat itself may run in a
-    different environment (or a chroot), and as such this environment might not
-    represent the actual System.
-
-    This environment look for binaries in os.environ['PATH'] and inherits all
-    variables from os.environ.
-    """
-    _parent = NullEnvironment
-    def build_environment(self):
-        return self.extend_environment({})
-    def extend_environment(self, env):
-        return dict(env.items() + os.environ.items())
-    def find_binary(self, name):
-        paths = self.binary_path(name)
-        if paths:
-            return paths[0]
-        else:
-            return None
-    def binary_path(self, name):
-        return [
-            os.path.join(path, name)
-            for path in os.environ['PATH'].split(os.pathsep)
-            if (    os.path.isfile(os.path.join(path, name))
-                and os.access(os.path.join(path, name), os.X_OK))
-        ]
-
-
 class EnvironmentBase(ComponentBase):
-    _habitat = NullHabitat()
-    _parent = NullEnvironment()
+    _habitat = None
+    _parent = None
 
     def __init__(self, parent=None, **kwargs):
         if parent:
@@ -68,19 +39,26 @@ class EnvironmentBase(ComponentBase):
         path = self.binary_path(name)
         if path:
             return path[0]
-        else:
+        elif self._parent:
             return self._parent.find_binary(name)
+        else:
+            return None
 
     def build_environment(self):
-        return dict(self.extend_environment(self._parent.build_environment()))
+        env = DEFAULT_ENVIRONMENT
+        if self._parent:
+            env = dict(self._parent.build_environment().items() + env.items())
+        return self.extend_environment(env)
     def execute(self, cmd, *args, **kwargs):
+        env = kwargs.pop('env', {})
         return self._habitat.execute_in_thread(
             cmd=(self.find_binary(cmd),) + args,
             logger=None,
-            env=self.build_environment(),
+            env=dict(self.build_environment().items() + env.items()),
             **kwargs
             )
     def execute_or_die(self, cmd, *args, **kwargs):
+        env = kwargs.pop('env', {})
         return self._habitat.execute_or_die(
             cmd=(self.find_binary(cmd),) + args,
             logger=None,
@@ -104,6 +82,28 @@ class EnvironmentBase(ComponentBase):
         env[name] = os.pathsep.join(path_list)
 
 
+class SystemEnvironment(EnvironmentBase):
+    """The most basic environment.
+
+    By default, every environment inherits from this one. It is the environment
+    in which Habitat itself runs. Not that Habitat itself may run in a
+    different environment (or a chroot), and as such this environment might not
+    represent the actual System.
+
+    This environment look for binaries in os.environ['PATH'] and inherits all
+    variables from os.environ.
+    """
+    def extend_environment(self, env):
+        return dict(env.items() + os.environ.items())
+    def binary_path(self, name):
+        return [
+            os.path.join(path, name)
+            for path in os.environ['PATH'].split(os.pathsep)
+            if (    os.path.isfile(os.path.join(path, name))
+                and os.access(os.path.join(path, name), os.X_OK))
+        ]
+
+
 class ComponentBinHelperMixin(object):
     def binary_path(self, name):
         bin_root = self['bin_root']
@@ -112,20 +112,22 @@ class ComponentBinHelperMixin(object):
         return [
             os.path.join(path, name)
             for path in self.build_environment()['PATH'].split(os.pathsep)
-            if (    os.path.isfile(os.path.join(path, name))
+            if (    (os.path.isfile(os.path.join(path, name))
+                     or os.path.islink(os.path.join(path, name)))
                 and os.access(os.path.join(path, name), os.X_OK))
         ]
 
 
 class VirtualEnvEnvironment(ComponentBinHelperMixin, EnvironmentBase):
-    # virtualenv_root = '%(habitat_root)s'
+    virtualenv_root = '%(habitat_root)s'
     bin_root = '%(virtualenv_root)s/bin'
 
     def extend_environment(self, env):
-        habitat_root = os.path.abspath(self['virtualenv_root'])
-        self._path_helper(env, 'PATH', os.path.join(habitat_root, 'bin'), prioritize=True)
+        root = os.path.abspath(self['virtualenv_root'])
+        self._path_helper(env, 'PATH', self['bin_root'], prioritize=True)
 
-        site_packages = os.path.join(habitat_root, 'lib', 'python%s' % sys.version[:3], 'site-packages')
+        site_packages = os.path.join(root, 'lib', 'python%s' % sys.version[:3], 'site-packages')
         self._path_helper(env, 'PYTHONPATH', site_packages, prioritize=True)
-        return env
 
+        env['VIRTUALENV'] = root
+        return env

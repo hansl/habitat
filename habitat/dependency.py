@@ -61,7 +61,7 @@ def order_dependencies(deps, implicit_deps=True):
             ret_list.append(c)
             ordered_set.remove(c)
 
-        if not to_add and not to_remove and ordered_set:
+        if not to_add and ordered_set:
             raise CyclicalDependencyListError(ordered_set)
 
     return ret_list
