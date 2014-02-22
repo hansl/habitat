@@ -73,6 +73,13 @@ class Habitat(Dictionary):
     def command(self, command, *args):
         getattr(self.Commands, command)(self, *args)
 
+    def get_component(self, name):
+        if isinstance(name, basestring):
+            return self[name]
+        if isinstance(name, ComponentBase):
+            return name
+        raise Exception('Invalid component: %s' % name)
+
     def _components(self):
         all_components = [
             name
@@ -96,14 +103,13 @@ class Habitat(Dictionary):
     class Commands:
         @staticmethod
         def run(habitat, *args):
+            """Run a list of components by their names."""
             if 0 == len(args):
                 habitat.command('runall')
                 return
 
             for server in args:
-                if isinstance(server, basestring):
-                    server = habitat[server]
-                server.start()
+                habitat.get_component(server).start()
 
             print 'Waiting for CTRL-C'
             try:
@@ -113,17 +119,51 @@ class Habitat(Dictionary):
                 pass
 
             for server in args:
-                if isinstance(server, basestring):
-                    server = habitat[server]
-                server.stop()
+                habitat.get_component(server).stop()
 
             habitat.metadata.storage.save()
 
         @staticmethod
         def runall(habitat):
+            """Run every component configured in the Habitat."""
             if not habitat._components():
                 raise Exception('No components registered.')
             habitat.command('run', *[p for n, p in habitat._components()])
+
+        @staticmethod
+        def show(habitat, *args):
+            """Output all variables as they are evaluated in each component
+               or the habitat itself.
+            """
+            for key in args:
+                if key in habitat:
+                    print '%25s["%s"] == "%s"' % (
+                        habitat.habitat_name, key, habitat[key])
+
+                for name, component in habitat._components():
+                    if key in component:
+                        print '%25s["%s"] == "%s"' % (name, key, component[key])
+
+        @staticmethod
+        def help(habitat):
+            """Output all accepted commands and their docstring if available.
+            """
+            print '   Command          Description'
+            print '-' * 80
+            for method in dir(habitat.Commands):
+                if method.startswith('_'):
+                    continue
+
+                doc = getattr(habitat.Commands, method).__doc__
+                if not doc:
+                    print '   %-16s' % (method)
+                else:
+                    import textwrap
+                    doc = ' '.join([line.strip() for line in doc.split('\n')])
+                    doc = textwrap.wrap('\n'.join(doc.split('  ')), 60)
+                    print '   %-16s %-60s' % (method, ('\n' + ' ' * 20).join(doc))
+
+
 
     # Execution of commands.
     def __open_process(self, logger, cmd, env, cwd, **kwargs):
@@ -149,18 +189,15 @@ class Habitat(Dictionary):
             bufsize=1,
             stderr=slave_err_fd,
             stdout=slave_out_fd,
-            close_fds=True,
-            **kwargs)
+            close_fds=True)
         return (process, (master_out_fd, slave_out_fd), (master_err_fd, slave_err_fd))
 
-    def __exec_thread_main(self, logger, process, stdoutFn=None, endFn=None, errFn=None):
+    def __exec_thread_main(self, logger, process, stdoutFn=None, stderrFn=None, endFn=None, errFn=None):
         def _stdout(msg):
-            if stdoutFn:
-                stdoutFn(msg)
             if logger:
                 logger.info(msg)
             print 'OUT: %s' % (msg,)
-        def _stderr(msg, *args):
+        def _stderr(msg):
             if logger:
                 logger.error(msg, *args)
             print 'ERR: %s' % (msg,)
@@ -177,12 +214,18 @@ class Habitat(Dictionary):
                 for fd in readables:
                     if fd == master_out_fd:
                         data = os.read(master_out_fd, 1024)
-                        for line in data.rstrip().split('\n'):
-                            _stdout(line)
+                        if stdoutFn:
+                            stdoutFn(data)
+                        else:
+                            for line in data.rstrip().split('\n'):
+                                _stdout(line)
                     elif fd == master_err_fd:
                         data = os.read(master_err_fd, 1024)
-                        for line in data.rstrip().split('\n'):
-                            _stderr(line)
+                        if stderrFn:
+                            stderrFn(data)
+                        else:
+                            for line in data.rstrip().split('\n'):
+                                _stderr(line)
 
                 if process.poll() is not None:
                     # We're done.
@@ -200,19 +243,27 @@ class Habitat(Dictionary):
         if endFn:
             endFn(process.returncode)
 
-    def __exec_thread(self, logger, cmd, env={}, cwd=None, stdoutFn=None, **kwargs):
+    def __exec_thread(self, logger, cmd, env={}, cwd=None, stdoutFn=None, stderrFn=None, **kwargs):
         process = self.__open_process(logger, cmd, env, cwd, **kwargs)
         thread = threading.Thread(
             target=self.__exec_thread_main,
-            args=(logger, process, stdoutFn))
+            args=(logger, process, stdoutFn, stderrFn))
         thread.start()
         return (thread, process[0])
 
-    def __exec(self, logger, cmd, env={}, cwd=None, **kwargs):
+    def __exec(self, logger, cmd, env={}, cwd=None, interactive=False, **kwargs):
         # We can use a local variable since we are joining the thread after.
         self.__stdout = []
+        self.__stderr = []
         def pipeStdout(msg):
+            if interactive:
+                sys.stdout.write(msg)
+                sys.stdout.flush()
             self.__stdout.append(msg)
+        def pipeStderr(msg):
+            if interactive:
+                sys.stderr.write(msg)
+            self.__stderr.append(msg)
 
         thread, process = self.__exec_thread(
             logger,
@@ -220,12 +271,15 @@ class Habitat(Dictionary):
             env,
             cwd,
             stdoutFn=pipeStdout,
+            stderrFn=pipeStderr,
             **kwargs)
         thread.join()
 
         stdout = '\n'.join(self.__stdout)
+        stderr = '\n'.join(self.__stderr)
         self.__stdout = None
-        return (process.returncode, stdout)
+        self.__stderr = None
+        return (process.returncode, stdout, stderr)
 
     def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
@@ -243,4 +297,11 @@ class Habitat(Dictionary):
            thread.
         """
         return self.__exec_thread(kwargs.get('logger', None), cmd, env, cwd)
+
+    def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
+        """Run a command line tool using an environment and redirecting the
+           STDOUT/STDERR to the local logs. The tool is ran interactively.
+        """
+        return self.__exec(kwargs.get('logger', None), cmd, env, cwd,
+                           interactive=True)
 

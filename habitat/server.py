@@ -20,8 +20,6 @@ class ServerBase(ComponentBase):
             cwd = self['server_cwd']
         if not env and 'server_env' in self:
             env = self['server_env']
-        print env
-        print args
         self.thread, self.process = self._env.execute(bin,
                                                       cwd=cwd,
                                                       env=env,

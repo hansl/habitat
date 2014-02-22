@@ -35,5 +35,8 @@ class ComponentBase(Dictionary):
 
     # Dictionary related functions.
     def env(self):
-        return self._env.build_environment()
+        if self._env:
+            return self._env.build_environment()
+        else:
+            return None
 

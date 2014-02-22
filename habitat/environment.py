@@ -47,6 +47,7 @@ class EnvironmentBase(ComponentBase):
     def build_environment(self):
         env = DEFAULT_ENVIRONMENT
         if self._parent:
+            self._parent = self._habitat.get_component(self._parent)
             env = dict(self._parent.build_environment().items() + env.items())
         return self.extend_environment(env)
     def execute(self, cmd, *args, **kwargs):
@@ -62,7 +63,15 @@ class EnvironmentBase(ComponentBase):
         return self._habitat.execute_or_die(
             cmd=(self.find_binary(cmd),) + args,
             logger=None,
-            env=self.build_environment(),
+            env=dict(self.build_environment().items() + env.items()),
+            **kwargs
+            )
+    def execute_interactive(self, cmd, *args, **kwargs):
+        env = kwargs.pop('env', {})
+        return self._habitat.execute_interactive(
+            cmd=(self.find_binary(cmd),) + args,
+            logger=None,
+            env=dict(self.build_environment().items() + env.items()),
             **kwargs
             )
 

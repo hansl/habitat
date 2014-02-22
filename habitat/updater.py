@@ -15,7 +15,10 @@ class Updater(ComponentBase):
         pass
 
     def start(self):
-        version = LooseVersion(self.version())
+        version = self.version()
+        if not isinstance(version, LooseVersion):
+            version = LooseVersion(version)
+
         if 'version' not in self.metadata:
             should_update = True
         else:
