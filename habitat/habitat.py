@@ -286,22 +286,22 @@ class Habitat(Dictionary):
            STDOUT/STDERR to the local logs. Throw an exception if the command
            failed.
         """
-        retcode, stdout = self.__exec(kwargs.get('logger', None), cmd, env, cwd)
+        retcode, stdout, stderr = self.__exec(kwargs.pop('logger', None), cmd, env=env, cwd=cwd)
         if retcode != 0:
             raise Exception('Command failed.')
-        return stdout
+        return stdout, stderr
 
     def execute_in_thread(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran in a separate
            thread.
         """
-        return self.__exec_thread(kwargs.get('logger', None), cmd, env, cwd)
+        return self.__exec_thread(kwargs.pop('logger', None), cmd, env, cwd)
 
     def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran interactively.
         """
-        return self.__exec(kwargs.get('logger', None), cmd, env, cwd,
+        return self.__exec(kwargs.pop('logger', None), cmd, env, cwd,
                            interactive=True)
 
