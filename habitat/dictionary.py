@@ -23,8 +23,9 @@ class Dictionary(object):
     There are more complex cases as well. Look for the unit tests to get ideas.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, **kwargs):
         self.__parent = parent
+        self.__kwargs = kwargs
 
     class __ShouldThrow:
         pass
@@ -74,7 +75,9 @@ class Dictionary(object):
             value = getattr(target, name, __Default)
 
         if value == __Default:
-            if self.__parent:
+            if value in self.__kwargs:
+                return self._format_value(self.__kwargs[value], context)
+            elif self.__parent:
                 return self.__parent._resolve_value(name, self.__parent,
                                                     context, default)
             elif default is Dictionary.__ShouldThrow:

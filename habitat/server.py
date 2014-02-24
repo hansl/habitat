@@ -39,14 +39,3 @@ class PythonServer(ServerBase):
     def start(self):
         super(PythonServer, self).start(
             'python', [self['server_bin']] + list(self['server_args']))
-
-
-class DjangoServer(PythonServer):
-    server_bin = '%(manage_path)s'
-    server_args = ['runserver']
-    server_env = {
-        'DJANGO_SETTINGS_MODULE': '%(django_settings)s'
-    }
-
-    def server_cwd(self):
-        return os.path.dirname(self['manage_path'])

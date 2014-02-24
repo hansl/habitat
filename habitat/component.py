@@ -9,8 +9,8 @@ import sys
 class ComponentBase(Dictionary):
     __habitat = None
 
-    def __init__(self, deps=None, env=None):
-        super(ComponentBase, self).__init__()
+    def __init__(self, deps=None, env=None, **kwargs):
+        super(ComponentBase, self).__init__(**kwargs)
         self._deps = deps or []
         self._env = env
 
