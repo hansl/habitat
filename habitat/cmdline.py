@@ -22,6 +22,7 @@ class CommandLineTool(ComponentBase):
                                                              cwd=cwd,
                                                              env=env,
                                                              *args)
+        super(CommandLineTool, self).start()
 
 
 class PythonCommandLineTool(CommandLineTool):

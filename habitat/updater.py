@@ -29,6 +29,7 @@ class Updater(ComponentBase):
 
             self.update()
             self.metadata['version'] = version
+        super(Updater, self).start()
 
 
 class PipUpdater(Updater):

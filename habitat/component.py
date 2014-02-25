@@ -7,7 +7,12 @@ import sys
 
 
 class ComponentBase(Dictionary):
-    __habitat = None
+    class State:
+        STOPPED = 0
+        RUNNING = 1
+
+    _habitat = None
+    _state = State.STOPPED
 
     def __init__(self, deps=None, env=None, **kwargs):
         super(ComponentBase, self).__init__(**kwargs)
@@ -21,17 +26,20 @@ class ComponentBase(Dictionary):
     def habitat(self, value):
         self.parent = value
         self._habitat = value
-        if isinstance(self._env, basestring):
-            self._env = self[self._env]
 
     @property
     def deps(self):
         return self._deps
 
+    def state(self, state):
+        self._state = state
+    def is_running(self):
+        return self._state
+
     def start(self):
-        pass
+        self._state = ComponentBase.State.RUNNING
     def stop(self):
-        pass
+        self._state = ComponentBase.State.STOPPED
 
     # Dictionary related functions.
     def env(self):

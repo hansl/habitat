@@ -24,6 +24,7 @@ class ServerBase(ComponentBase):
                                                       cwd=cwd,
                                                       env=env,
                                                       *args)
+        super(ServerBase, self).start()
 
     def stop(self):
         try:
@@ -33,6 +34,7 @@ class ServerBase(ComponentBase):
         self.thread.join()
         self.process = None
         self.thread = None
+        super(ServerBase, self).stop()
 
 
 class PythonServer(ServerBase):

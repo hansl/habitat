@@ -3,8 +3,10 @@ from component import ComponentBase
 from dictionary import Dictionary
 from dependency import order_dependencies
 from environment import NullEnvironment, SystemEnvironment
+from executer import Executer
 from metadata import MetaDataFile
-from server import ServerBase
+
+from collections import OrderedDict
 
 import datetime
 import getpass
@@ -15,6 +17,7 @@ import re
 import select
 import subprocess
 import sys
+import textwrap
 import threading
 
 
@@ -25,7 +28,7 @@ except ImportError:
     from queue import Queue, Empty
 
 
-class Habitat(Dictionary):
+class Habitat(ComponentBase):
     system_env = SystemEnvironment()
     null_env = NullEnvironment()
     default_env = SystemEnvironment()
@@ -39,23 +42,18 @@ class Habitat(Dictionary):
         pass
 
     def __init__(self, should_start=True, *args, **kwargs):
+        self.executer = Executer()
         self.habitat_name = self.__class__.__name__
         super(Habitat, self).__init__()
         self._args = args
 
+        # We absolutely need a metadata file.
         metadata_path = self['metadata_path']
         if not os.path.exists(os.path.dirname(metadata_path)):
             os.makedirs(os.path.dirname(metadata_path))
         self.metadata = MetaDataFile(metadata_path)
 
-        all_components = [
-            name
-            for name in dir(self)
-            if (not name.startswith('_')
-                and isinstance(getattr(self, name), ComponentBase))
-        ]
-        for name in all_components:
-            component = getattr(self, name)
+        for name, component in self.get_all_components().iteritems():
             component.habitat = self
             if 'name' not in component:
                 component.name = name
@@ -64,14 +62,52 @@ class Habitat(Dictionary):
             component.metadata = self.metadata[component.name]
 
         if should_start:
-            if self._args:
-                command = self._args[0]
-            else:
-                command = 'run'
-            self.command(command, *self._args[1:])
+            self.start()
+            self.wait_if_needed()
+            self.stop()
 
     def command(self, command, *args):
         getattr(self.Commands, command)(self, *args)
+
+    def get_all_components(self):
+        return {
+            name: getattr(self, name)
+            for name in dir(self)
+            if (not name.startswith('_')
+                and hasattr(self, name)
+                and isinstance(getattr(self, name), ComponentBase))
+        }
+
+    def start(self):
+        if self._args:
+            command = self._args[0]
+        else:
+            command = 'run'
+        self.command(command, *self._args[1:])
+
+    def wait_if_needed(self):
+        # If we are running a component, we wait for a CTRL-C from the user.
+        should_wait = False
+        for name, component in self.get_all_components().iteritems():
+            if component.is_running():
+                should_wait = True
+                break
+
+        if should_wait:
+            print 'Waiting for CTRL-C...'
+            try:
+                while True:
+                    sys.stdin.readlines()
+            except KeyboardInterrupt:
+                pass
+
+    def stop(self):
+        for name, component in reversed(self.get_ordered_components().items()):
+            if component.is_running():
+                print 'Stopping "%s"...' % (component.name,)
+                component.stop()
+
+        self.metadata.storage.save()        
 
     def get_component(self, name):
         if isinstance(name, basestring):
@@ -80,72 +116,79 @@ class Habitat(Dictionary):
             return name
         raise Exception('Invalid component: %s' % name)
 
-    def _components(self):
+    def get_ordered_components(self):
         all_components = [
             name
             for name in dir(self)
             if (not name.startswith('_')
+                and hasattr(self, name)
                 and isinstance(getattr(self, name), ComponentBase))
         ]
-        ordered_components = order_dependencies({
+
+        dependencies = {
                 name: (  [dep.name for dep in getattr(self, name).deps]
                        + ([getattr(self, name)._env.name]) if getattr(self, name)._env else [])
                 for name in all_components
-            })
+            }
+        ordered_components = order_dependencies(dependencies)
 
-        for c in ordered_components:
-            yield (c, getattr(self, c))
+        return OrderedDict([
+                (name, getattr(self, name))
+                for name in ordered_components
+            ])
 
+    def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
+        """Run a command line tool using an environment and redirecting the
+           STDOUT/STDERR to the local logs. Throw an exception if the command
+           failed.
+        """
+        return self.executer.execute_or_die(cmd, env, cwd, **kwargs)
 
-    def _start(self):
-        pass
+    def execute_in_thread(self, cmd, env={}, cwd=None, **kwargs):
+        """Run a command line tool using an environment and redirecting the
+           STDOUT/STDERR to the local logs. The tool is ran in a separate
+           thread.
+        """
+        return self.executer.execute_in_thread(cmd, env, cwd, **kwargs)
+
+    def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
+        """Run a command line tool using an environment and redirecting the
+           STDOUT/STDERR to the local logs. The tool is ran interactively.
+        """
+        return self.executer.execute_interactive(cmd, env, cwd, **kwargs)
 
     class Commands:
         @staticmethod
         def run(habitat, *args):
             """Run a list of components by their names."""
             if 0 == len(args):
-                habitat.command('runall')
-                return
+                args = habitat.get_ordered_components().values()
 
             for server in args:
-                habitat.get_component(server).start()
-
-            print 'Waiting for CTRL-C'
-            try:
-                while True:
-                    sys.stdin.readlines()
-            except KeyboardInterrupt:
-                pass
-
-            for server in args:
-                habitat.get_component(server).stop()
-
-            habitat.metadata.storage.save()
-
-        @staticmethod
-        def runall(habitat):
-            """Run every component configured in the Habitat."""
-            if not habitat._components():
-                raise Exception('No components registered.')
-            habitat.command('run', *[p for n, p in habitat._components()])
+                if server.start != ComponentBase.start:
+                    print 'Starting %s...' % (server.name,)
+                server.start()
 
         @staticmethod
         def show(habitat, *args):
             """Output all variables as they are evaluated in each component
                or the habitat itself.
+
+               Usage: show <variable> <variable...>
             """
+            if not args:
+                habitat.command('help', 'show')
             for key in args:
                 if key in habitat:
                     print '%25s["%s"] == "%s"' % (
                         habitat.habitat_name, key, habitat[key])
 
-                for name, component in habitat._components():
+                for name, component in habitat.get_ordered_components():
                     if key in component:
                         print '%25s["%s"] == "%s"' % (name, key, component[key])
 
         @staticmethod
-        def help(habitat):
+        def help(habitat, *args):
             """Output all accepted commands and their docstring if available.
             """
             print '   Command          Description'
@@ -153,155 +196,13 @@ class Habitat(Dictionary):
             for method in dir(habitat.Commands):
                 if method.startswith('_'):
                     continue
+                if args and not method in args:
+                    continue
 
                 doc = getattr(habitat.Commands, method).__doc__
                 if not doc:
                     print '   %-16s' % (method)
                 else:
-                    import textwrap
-                    doc = ' '.join([line.strip() for line in doc.split('\n')])
-                    doc = textwrap.wrap('\n'.join(doc.split('  ')), 60)
-                    print '   %-16s %-60s' % (method, ('\n' + ' ' * 20).join(doc))
-
-
-
-    # Execution of commands.
-    def __open_process(self, logger, cmd, env, cwd, **kwargs):
-        if logger:
-            logger.info('Running command: %r' % cmd)
-            if env:
-                logger.info('With env (showing only all caps):')
-                for key, val in env.iteritems():
-                    if re.match(r'[A-Z0-9_]+', key):
-                        logger.info('  %-20s = %s' % (key,val))
-            logger.info('With CWD: %s' % (cwd or os.getcwd()))
-            logger.info('-' * 100)
-
-        # provide tty to enable line buffering.
-        master_out_fd, slave_out_fd = pty.openpty()
-        master_err_fd, slave_err_fd = pty.openpty()
-
-        process = subprocess.Popen(
-            cmd,
-            cwd=cwd,
-            env=env,
-            shell=False,
-            bufsize=1,
-            stderr=slave_err_fd,
-            stdout=slave_out_fd,
-            close_fds=True)
-        return (process, (master_out_fd, slave_out_fd), (master_err_fd, slave_err_fd))
-
-    def __exec_thread_main(self, logger, process, stdoutFn=None, stderrFn=None, endFn=None, errFn=None):
-        def _stdout(msg):
-            if logger:
-                logger.info(msg)
-            print 'OUT: %s' % (msg,)
-        def _stderr(msg):
-            if logger:
-                logger.error(msg, *args)
-            print 'ERR: %s' % (msg,)
-
-        try:
-            process, out_fd, err_fd = process
-
-            master_out_fd, slave_out_fd = out_fd
-            master_err_fd, slave_err_fd = err_fd
-            inputs = [master_out_fd, master_err_fd]
-
-            while True:
-                readables, _, _ = select.select(inputs, [], [], 0.1)
-                for fd in readables:
-                    if fd == master_out_fd:
-                        data = os.read(master_out_fd, 1024)
-                        if stdoutFn:
-                            stdoutFn(data)
-                        else:
-                            for line in data.rstrip().split('\n'):
-                                _stdout(line)
-                    elif fd == master_err_fd:
-                        data = os.read(master_err_fd, 1024)
-                        if stderrFn:
-                            stderrFn(data)
-                        else:
-                            for line in data.rstrip().split('\n'):
-                                _stderr(line)
-
-                if process.poll() is not None:
-                    # We're done.
-                    break
-
-        except Exception, e:
-            print 'EXCEPTION: ', e
-            if errFn:
-                errFn(e)
-
-        for fd in inputs + [slave_out_fd, slave_err_fd]:
-            os.close(fd)
-        process.wait()
-
-        if endFn:
-            endFn(process.returncode)
-
-    def __exec_thread(self, logger, cmd, env={}, cwd=None, stdoutFn=None, stderrFn=None, **kwargs):
-        process = self.__open_process(logger, cmd, env, cwd, **kwargs)
-        thread = threading.Thread(
-            target=self.__exec_thread_main,
-            args=(logger, process, stdoutFn, stderrFn))
-        thread.start()
-        return (thread, process[0])
-
-    def __exec(self, logger, cmd, env={}, cwd=None, interactive=False, **kwargs):
-        # We can use a local variable since we are joining the thread after.
-        self.__stdout = []
-        self.__stderr = []
-        def pipeStdout(msg):
-            if interactive:
-                sys.stdout.write(msg)
-                sys.stdout.flush()
-            self.__stdout.append(msg)
-        def pipeStderr(msg):
-            if interactive:
-                sys.stderr.write(msg)
-            self.__stderr.append(msg)
-
-        thread, process = self.__exec_thread(
-            logger,
-            cmd,
-            env,
-            cwd,
-            stdoutFn=pipeStdout,
-            stderrFn=pipeStderr,
-            **kwargs)
-        thread.join()
-
-        stdout = '\n'.join(self.__stdout)
-        stderr = '\n'.join(self.__stderr)
-        self.__stdout = None
-        self.__stderr = None
-        return (process.returncode, stdout, stderr)
-
-    def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
-        """Run a command line tool using an environment and redirecting the
-           STDOUT/STDERR to the local logs. Throw an exception if the command
-           failed.
-        """
-        retcode, stdout, stderr = self.__exec(kwargs.pop('logger', None), cmd, env=env, cwd=cwd)
-        if retcode != 0:
-            raise Exception('Command failed.')
-        return stdout, stderr
-
-    def execute_in_thread(self, cmd, env={}, cwd=None, **kwargs):
-        """Run a command line tool using an environment and redirecting the
-           STDOUT/STDERR to the local logs. The tool is ran in a separate
-           thread.
-        """
-        return self.__exec_thread(kwargs.pop('logger', None), cmd, env, cwd)
-
-    def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
-        """Run a command line tool using an environment and redirecting the
-           STDOUT/STDERR to the local logs. The tool is ran interactively.
-        """
-        return self.__exec(kwargs.pop('logger', None), cmd, env, cwd,
-                           interactive=True)
+                    doc = textwrap.fill(doc, 60, subsequent_indent=' ' * 20)
+                    print '   %-16s %-60s' % (method, doc)
 

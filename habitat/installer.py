@@ -15,6 +15,7 @@ class Installer(ComponentBase):
         if not self.is_installed():
             self.install()
             self.metadata['installed'] = True
+        super(Installer, self).start()
 
 
 class VirtualEnvInstaller(Installer):
