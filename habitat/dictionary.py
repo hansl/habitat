@@ -33,10 +33,10 @@ class Dictionary(object):
         if isinstance(value, basestring):
             return value % context
         elif isinstance(value, (list, tuple)):
-            return map(lambda x: x % context, value)
+            return map(lambda x: self._format_value(x, context), value)
         elif isinstance(value, dict):
             return {
-                key % context: self._format_value(value, context)
+                self._format_value(key, context): self._format_value(value, context)
                 for key, value in value.iteritems()
             }
         elif isinstance(value, (
@@ -46,6 +46,8 @@ class Dictionary(object):
                 types.BuiltinMethodType,
                 types.UnboundMethodType)):
             return self._format_value(value(), context)
+        elif hasattr(value, 'name'):
+            return value.name
         else:
             return value
 
@@ -87,8 +89,10 @@ class Dictionary(object):
 
         else:
             if self.__parent and name in self.__parent:
-                return self.__parent._resolve_value(name, self.__parent,
-                                                    context, default)
+                parent_value = self.__parent._resolve_value(name, self.__parent,
+                                                            context, default)
+                if parent_value:
+                    return parent_value
             return self._format_value(value, context)
 
     def __contains__(self, name):

@@ -29,10 +29,6 @@ except ImportError:
 
 
 class Habitat(ComponentBase):
-    system_env = SystemEnvironment()
-    null_env = NullEnvironment()
-    default_env = SystemEnvironment()
-
     user = getpass.getuser()
     home = os.path.expanduser("~")
     habitat_root = '%(home)s/.habitats/%(habitat_name)s'
@@ -183,7 +179,7 @@ class Habitat(ComponentBase):
                     print '%25s["%s"] == "%s"' % (
                         habitat.habitat_name, key, habitat[key])
 
-                for name, component in habitat.get_ordered_components():
+                for name, component in habitat.get_ordered_components().iteritems():
                     if key in component:
                         print '%25s["%s"] == "%s"' % (name, key, component[key])
 
