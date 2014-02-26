@@ -6,7 +6,7 @@ import os
 
 
 class DjangoCommand(PythonCommandLineTool):
-    tool_bin = '%(manage_path)s'
+    tool_bin = '%(django_manage_path)s'
     tool_env = {
         'DJANGO_SETTINGS_MODULE': '%(django_settings)s'
     }
@@ -19,15 +19,15 @@ class DjangoCommand(PythonCommandLineTool):
         return self._args
 
     def tool_cwd(self):
-        return os.path.dirname(self['manage_path'])
+        return os.path.dirname(self['django_manage_path'])
 
 
 class DjangoServer(PythonServer):
-    server_bin = '%(manage_path)s'
+    server_bin = '%(django_manage_path)s'
     server_args = ['runserver']
     server_env = {
         'DJANGO_SETTINGS_MODULE': '%(django_settings)s'
     }
 
     def server_cwd(self):
-        return os.path.dirname(self['manage_path'])
+        return os.path.dirname(self['django_manage_path'])

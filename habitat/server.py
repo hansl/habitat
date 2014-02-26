@@ -41,3 +41,9 @@ class PythonServer(ServerBase):
     def start(self):
         super(PythonServer, self).start(
             'python', [self['server_bin']] + list(self['server_args']))
+
+
+class JavaServer(ServerBase):
+    def start(self):
+        super(JavaServer, self).start(
+            'java', [self['server_bin']] + list(self['server_args']))

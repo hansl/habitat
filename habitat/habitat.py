@@ -138,6 +138,7 @@ class Habitat(ComponentBase):
            STDOUT/STDERR to the local logs. Throw an exception if the command
            failed.
         """
+        print '... %s' % (cmd,)
         return self.executer.execute_or_die(cmd, env, cwd, **kwargs)
 
     def execute_in_thread(self, cmd, env={}, cwd=None, **kwargs):
@@ -145,12 +146,14 @@ class Habitat(ComponentBase):
            STDOUT/STDERR to the local logs. The tool is ran in a separate
            thread.
         """
+        print '... %s' % (cmd,)
         return self.executer.execute_in_thread(cmd, env, cwd, **kwargs)
 
     def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran interactively.
         """
+        print '... %s' % (cmd,)
         return self.executer.execute_interactive(cmd, env, cwd, **kwargs)
 
     class Commands:
