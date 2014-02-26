@@ -2,6 +2,7 @@
 from component import ComponentBase
 
 from threading import Thread
+from wsgiref.simple_server import make_server
 from SocketServer import ThreadingMixIn
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
@@ -14,22 +15,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write("Hello World!")
 
 
-class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-    pass
-
-
 class DashboardComponent(ComponentBase):
     server_port = '%(port)d'
 
-
     def application(self, env, start_response):
         start_response('200 OK', [('Content-Type','text/html')])
-        return ["Hello World"]
+        return ["Hello World 123"]
 
     def serve(self, host, port):
-        server = ThreadingHTTPServer((host, port), Handler)
-        server.serve_forever()
-
+        self.httpd = make_server(host, port, self.application)
+        self.httpd.serve_forever()
 
     def start(self):
         self.thread = Thread(target=self.serve, args=[self['host'], int(self['server_port'])])
@@ -38,6 +33,7 @@ class DashboardComponent(ComponentBase):
         super(DashboardComponent, self).start()
 
     def stop(self):
+        Thread(target=self.httpd.shutdown).start()
         self.thread.join()
         super(DashboardComponent, self).stop()
 
