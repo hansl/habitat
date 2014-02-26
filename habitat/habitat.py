@@ -1,5 +1,6 @@
 # Copyright (C) 2013 Coders at Work
 from component import ComponentBase
+from dashboard import DashboardComponent
 from dictionary import Dictionary
 from dependency import order_dependencies
 from environment import NullEnvironment, SystemEnvironment
@@ -34,6 +35,12 @@ class Habitat(ComponentBase):
     habitat_root = '%(home)s/.habitats/%(habitat_name)s'
     metadata_path = '%(habitat_root)s/metadata'
 
+    base_port = 8000
+
+    host = '127.0.0.1'
+
+    dashboard = DashboardComponent(server_port='%(port)s')
+
     class __ShouldThrow(object):
         pass
 
@@ -42,6 +49,7 @@ class Habitat(ComponentBase):
         self.habitat_name = self.__class__.__name__
         super(Habitat, self).__init__()
         self._args = args
+        self._port_map = {}
 
         # We absolutely need a metadata file.
         metadata_path = self['metadata_path']
@@ -62,17 +70,15 @@ class Habitat(ComponentBase):
             self.wait_if_needed()
             self.stop()
 
+    def port(self):
+        c = self.get_component_from_stack()
+        if c not in self._port_map:
+            self._port_map[c] = self['base_port'] + len(self._port_map.keys())
+        print "Component %s --> %d" % (c.name, self._port_map[c])
+        return self._port_map[c]
+
     def command(self, command, *args):
         getattr(self.Commands, command)(self, *args)
-
-    def get_all_components(self):
-        return {
-            name: getattr(self, name)
-            for name in dir(self)
-            if (not name.startswith('_')
-                and hasattr(self, name)
-                and isinstance(getattr(self, name), ComponentBase))
-        }
 
     def start(self):
         if self._args:
@@ -105,6 +111,15 @@ class Habitat(ComponentBase):
 
         self.metadata.storage.save()        
 
+    def get_all_components(self):
+        return {
+            name: getattr(self, name)
+            for name in dir(self)
+            if (not name.startswith('_')
+                and hasattr(self, name)
+                and isinstance(getattr(self, name), ComponentBase))
+        }
+
     def get_component(self, name):
         if isinstance(name, basestring):
             return self[name]
@@ -112,15 +127,19 @@ class Habitat(ComponentBase):
             return name
         raise Exception('Invalid component: %s' % name)
 
-    def get_ordered_components(self):
-        all_components = [
-            name
-            for name in dir(self)
-            if (not name.startswith('_')
-                and hasattr(self, name)
-                and isinstance(getattr(self, name), ComponentBase))
-        ]
+    def get_component_from_stack(self):
+        i = 2
+        # Get the first stack level out of Habitat
+        stack = inspect.stack()[i]
+        while isinstance(stack[0].f_locals["self"], Habitat):
+            i += 1
+            stack = inspect.stack()[i]
+        if isinstance(stack[0].f_locals["self"], ComponentBase):
+            return stack[0].f_locals["self"]
+        return None
 
+    def get_ordered_components(self):
+        all_components = self.get_all_components().keys()
         dependencies = {
                 name: (  [dep.name for dep in getattr(self, name).deps]
                        + ([getattr(self, name)._env.name]) if getattr(self, name)._env else [])

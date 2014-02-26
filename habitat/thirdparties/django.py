@@ -24,7 +24,7 @@ class DjangoCommand(PythonCommandLineTool):
 
 class DjangoServer(PythonServer):
     server_bin = '%(django_manage_path)s'
-    server_args = ['runserver']
+    server_args = ['runserver', '%(host)s:%(port)s']
     server_env = {
         'DJANGO_SETTINGS_MODULE': '%(django_settings)s'
     }
