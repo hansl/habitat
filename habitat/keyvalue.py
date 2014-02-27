@@ -1,7 +1,7 @@
 # Copyright (C) 2014 Coders at Work
 import types
 
-class Dictionary(object):
+class KeyValueStore(object):
     """A dictionary-like object which resolves internal values.
 
     This is the core of the variable referencing system of Habitat. Both Habitat
@@ -33,14 +33,15 @@ class Dictionary(object):
     class __Default:
         pass
 
-    def _format_value(self, value, context):
+    def __format_value(self, value, target, context):
         if isinstance(value, basestring):
             return value % context
         elif isinstance(value, (list, tuple)):
-            return map(lambda x: self._format_value(x, context), value)
+            return map(lambda x: self.__format_value(x, target, context), value)
         elif isinstance(value, dict):
             return {
-                self._format_value(key, context): self._format_value(value, context)
+                self.__format_value(key, target, context):
+                        self.__format_value(value, target, context)
                 for key, value in value.iteritems()
             }
         elif isinstance(value, (
@@ -49,59 +50,76 @@ class Dictionary(object):
                 types.MethodType,
                 types.BuiltinMethodType,
                 types.UnboundMethodType)):
-            return self._format_value(value(), context)
-        elif hasattr(value, 'name'):
-            return value.name
+            return self.__format_value(value(), target, context)
         else:
             return value
 
-    def _resolve_value(self, name, target=None, context=None,
-                            default=__ShouldThrow):
-        if target is None:
-            target = self
-        if context is None:
-            context = self
+    def __has_value(self, name, target, context):
+        class __Nothing:
+            pass
+
         if '.' in name:
             namelist = name.split('.')
             for n in namelist[:-1]:
-                if isinstance(target, Dictionary):
-                    target = self._resolve_value(n, target, context, default)
+                if isinstance(target, KeyValueStore):
+                    target = self.__resolve_value(n, target, context, default)
+                else:
+                    target = target[n]
+            name = namelist[-1]
+
+        has = False
+        if isinstance(target, dict):
+            has = name in target
+        elif isinstance(target, (list, tuple)):
+            has = name in target
+        else:
+            has = hasattr(target, name)
+
+        return (   has
+                or (self.__kwargs and name in self.__kwargs)
+                or (self.__parent and name in self.__parent))
+
+    def __resolve_value(self, name, target, context,
+                              default=__ShouldThrow):
+        if '.' in name:
+            namelist = name.split('.')
+            for n in namelist[:-1]:
+                if isinstance(target, KeyValueStore):
+                    target = self.__resolve_value(n, target, context, default)
                 else:
                     target = target[n]
             name = namelist[-1]
 
         if isinstance(target, dict):
-            value = target.get(name, Dictionary.__Default)
+            value = target.get(name, KeyValueStore.__Default)
         elif isinstance(target, (list, tuple)):
             value = target[name]
         else:
-            value = getattr(target, name, Dictionary.__Default)
+            value = getattr(target, name, KeyValueStore.__Default)
 
-        if value == Dictionary.__Default:
+        if value == KeyValueStore.__Default:
             if name in self.__kwargs:
-                return self._format_value(self.__kwargs[name], context)
+                return self.__format_value(self.__kwargs[name], target, context)
             elif self.__parent:
-                return self.__parent._resolve_value(name, self.__parent,
-                                                    context, default)
-            elif default is Dictionary.__ShouldThrow:
+                return self.__parent.__resolve_value(name, self.__parent,
+                                                     context, default)
+            elif default is KeyValueStore.__ShouldThrow:
                 raise Exception('Could not find value named "%s".' % name)
             else:
                 return default
 
         else:
-            if self.__parent and name in self.__parent:
-                parent_value = self.__parent._resolve_value(name, self.__parent,
-                                                            context, default)
+            if self.__parent and self.__parent.__has_value(name, self.__parent, context):
+                parent_value = self.__parent.__resolve_value(name, self.__parent,
+                                                             context, default)
                 if parent_value:
                     return parent_value
-            return self._format_value(value, context)
+            return self.__format_value(value, target, context)
 
     def __contains__(self, name):
-        class __Nothing:
-            pass
-        return self._resolve_value(name, default=__Nothing) is not __Nothing
+        return self.__has_value(name, self, self)
     def __getitem__(self, name):
-        return self._resolve_value(name)
+        return self.__resolve_value(name, self, self)
 
     @property
     def parent(self):

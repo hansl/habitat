@@ -1,7 +1,7 @@
 # Copyright (C) 2013 Coders at Work
 from base import ComponentBase
 from dashboard import DashboardComponent
-from dictionary import Dictionary
+from keyvalue import KeyValueStore
 from dependency import order_dependencies
 from environment import NullEnvironment, SystemEnvironment
 from executer import Executer

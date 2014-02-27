@@ -1,12 +1,12 @@
 # Copyright (C) 2014 Coders at Work
-from habitat.dictionary import *
+from habitat.keyvalue import *
 
 import unittest
 
 
-class DictionaryTest(unittest.TestCase):
+class KeyValueStoreTest(unittest.TestCase):
     def test_simple(self):
-        class Simple(Dictionary):
+        class Simple(KeyValueStore):
             value = 'abc'
             value2 = 'abc%(value)s'
         d = Simple()
@@ -14,7 +14,7 @@ class DictionaryTest(unittest.TestCase):
         self.assertEquals(d['value2'], 'abcabc')
 
     def test_inherit(self):
-        class Base(Dictionary):
+        class Base(KeyValueStore):
             value = 'abc'
         class Sub(Base):
             value2 = 'abc%(value)s'
@@ -24,9 +24,9 @@ class DictionaryTest(unittest.TestCase):
         self.assertEquals(d['value2'], 'abcabc')
 
     def test_parent(self):
-        class Parent(Dictionary):
+        class Parent(KeyValueStore):
             value = 'abc'
-        class Test(Dictionary):
+        class Test(KeyValueStore):
             def __init__(self):
                 super(Test, self).__init__(Parent())
             value2 = 'abc%(value)s'
@@ -36,9 +36,9 @@ class DictionaryTest(unittest.TestCase):
         self.assertEquals(d['value2'], 'abcabc')
 
     def test_parent_2(self):
-        class Parent(Dictionary):
+        class Parent(KeyValueStore):
             value2 = 'abc%(value)s'
-        class Test(Dictionary):
+        class Test(KeyValueStore):
             def __init__(self):
                 super(Test, self).__init__(Parent())
             value = 'abc'
@@ -48,9 +48,9 @@ class DictionaryTest(unittest.TestCase):
         self.assertEquals(d['value2'], 'abcabc')
 
     def test_parent_3(self):
-        class Parent(Dictionary):
+        class Parent(KeyValueStore):
             value = 'abc%(value3)s'
-        class Test(Dictionary):
+        class Test(KeyValueStore):
             def __init__(self):
                 super(Test, self).__init__(Parent())
             value2 = 'abc%(value)s'
@@ -61,7 +61,7 @@ class DictionaryTest(unittest.TestCase):
         self.assertEquals(d['value2'], 'abcabcabc')
 
     def test_parent_4(self):
-        class Base(Dictionary):
+        class Base(KeyValueStore):
             value = 'abc%(value2)s'
         class Parent(Base):
             value2 = 'abc%(value3)s'
@@ -73,3 +73,45 @@ class DictionaryTest(unittest.TestCase):
         d = Test()
         self.assertEquals(d['value'], 'abcabcabc')
 
+    def test_parent_5(self):
+        class Base(KeyValueStore):
+            value = 'abc%(value2)s'
+        class Parent(Base):
+            value2 = 'abc%(value3)s'
+            value3 = '123'
+        class Test(Base):
+            def __init__(self):
+                super(Test, self).__init__(Parent())
+            value3 = 'abc'
+
+        d = Test()
+        self.assertEquals(d['value'], 'abcabc123')
+
+    def test_parent_6(self):
+        class Base(KeyValueStore):
+            value = 'abc%(value2)s'
+            value3 = '123'
+        class Parent(Base):
+            value2 = 'abc%(value3)s'
+        class Test(Base):
+            def __init__(self):
+                super(Test, self).__init__(Parent())
+            value3 = 'abc'
+
+        d = Test()
+        self.assertEquals(d['value'], 'abcabc123')
+
+    def test_parent_7(self):
+        class Base(KeyValueStore):
+            value = 'abc%(value2)s'
+            value3 = '123'
+        class Parent(Base):
+            value2 = 'abc%(value3)s'
+            value3 = '456'
+        class Test(Base):
+            def __init__(self):
+                super(Test, self).__init__(Parent())
+            value3 = 'abc'
+
+        d = Test()
+        self.assertEquals(d['value'], 'abcabc456')

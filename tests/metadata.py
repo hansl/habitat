@@ -1,4 +1,4 @@
-
+# Copyright (C) 2014 Coders at Work
 from habitat.metadata import *
 
 import tempfile

@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from dictionary import Dictionary
+from keyvalue import KeyValueStore
 from metadata import MetaDataFile
 
 import os
@@ -11,7 +11,7 @@ class ComponentState:
     RUNNING = 1
 
 
-class ComponentBase(Dictionary):
+class ComponentBase(KeyValueStore):
     _habitat = None
     _state = ComponentState.STOPPED
 
@@ -42,7 +42,7 @@ class ComponentBase(Dictionary):
     def stop(self):
         self._state = ComponentState.STOPPED
 
-    # Dictionary related functions.
+    # KeyValue related functions.
     def env(self):
         if self._env:
             return self._env.build_environment()
