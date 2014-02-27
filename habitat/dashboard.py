@@ -36,4 +36,3 @@ class DashboardComponent(ComponentBase):
         Thread(target=self.httpd.shutdown).start()
         self.thread.join()
         super(DashboardComponent, self).stop()
-

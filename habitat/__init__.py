@@ -11,3 +11,4 @@ from updater import *
 # Third party related components.
 from thirdparties import django
 from thirdparties import elasticsearch
+from thirdparties import virtualenv
