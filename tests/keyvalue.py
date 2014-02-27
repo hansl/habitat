@@ -85,7 +85,7 @@ class KeyValueStoreTest(unittest.TestCase):
             value3 = 'abc'
 
         d = Test()
-        self.assertEquals(d['value'], 'abcabc123')
+        self.assertEquals(d['value'], 'abcabcabc')
 
     def test_parent_6(self):
         class Base(KeyValueStore):
@@ -93,15 +93,31 @@ class KeyValueStoreTest(unittest.TestCase):
             value3 = '123'
         class Parent(Base):
             value2 = 'abc%(value3)s'
+            value3 = 'abc'
         class Test(Base):
             def __init__(self):
                 super(Test, self).__init__(Parent())
-            value3 = 'abc'
 
         d = Test()
         self.assertEquals(d['value'], 'abcabc123')
 
     def test_parent_7(self):
+        class Base(KeyValueStore):
+            value = 'abc%(value2)s'
+            class KeyValueDefault:
+                value3 = '123'
+        class Parent(Base):
+            value2 = 'abc%(value3)s'
+            class KeyValueDefault:
+                value3 = '456'
+        class Test(Base):
+            def __init__(self):
+                super(Test, self).__init__(Parent())
+
+        d = Test()
+        self.assertEquals(d['value'], 'abcabc456')
+
+    def test_parent_8(self):
         class Base(KeyValueStore):
             value = 'abc%(value2)s'
             value3 = '123'
@@ -111,7 +127,34 @@ class KeyValueStoreTest(unittest.TestCase):
         class Test(Base):
             def __init__(self):
                 super(Test, self).__init__(Parent())
-            value3 = 'abc'
 
         d = Test()
-        self.assertEquals(d['value'], 'abcabc456')
+        self.assertEquals(d['value'], 'abcabc123')
+
+    def test_parent_9(self):
+        class Base(KeyValueStore):
+            value = 'abc%(value2)s'
+            class KeyValueDefault:
+                value3 = '123'
+        class Parent(Base):
+            value2 = 'abc%(value3)s'
+        class Test(Base):
+            def __init__(self):
+                super(Test, self).__init__(Parent())
+
+        d = Test()
+        self.assertEquals(d['value'], 'abcabc123')
+
+    def test_set_1(self):
+        class Simple(KeyValueStore):
+            value = 'abc'
+        d = Simple()
+        self.assertEquals(d['value'], 'abc')
+        d['value'] = 'def'
+        self.assertEquals(d['value'], 'def')
+
+        d['value2'] = 'def'
+        d['value'] = 'abc%(value2)s'
+        self.assertEquals(d['value'], 'abcdef')
+
+

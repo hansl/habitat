@@ -21,6 +21,21 @@ class KeyValueStore(object):
         assert(MyCustomDictionary()['value2'] == '123456789')
 
     There are more complex cases as well. Look for the unit tests to get ideas.
+
+    The order of resolution is really important here:
+        1. If the key is a direct attribute of the object, return that.
+        2. If the key is a direct attribute of the kwargs, return that.
+        3. If the parent contains the key, return that.
+        4. If the KeyValueDefault class is defined in the class, fetch that
+           value.
+        5. Finally, returns the default value (or throw).
+
+    WARNING: Case 3 and 4 interacts in a non-intuitive way: if the key is in the
+    parent's KeyValueDefault object, then it will be used instead of the class's
+    default.
+
+    Setting items results in either the kwargs object being modified, or the
+    attribute being set. The value returned is the same as the value set.
     """
 
     def __init__(self, parent=None, **kwargs):
@@ -54,72 +69,86 @@ class KeyValueStore(object):
         else:
             return value
 
-    def __has_value(self, name, target, context):
+    def __has_value(self, key, target, context):
         class __Nothing:
             pass
 
-        if '.' in name:
-            namelist = name.split('.')
-            for n in namelist[:-1]:
+        if '.' in key:
+            keylist = key.split('.')
+            for n in keylist[:-1]:
                 if isinstance(target, KeyValueStore):
                     target = self.__resolve_value(n, target, context, default)
                 else:
                     target = target[n]
-            name = namelist[-1]
+            key = keylist[-1]
 
         has = False
         if isinstance(target, dict):
-            has = name in target
+            has = key in target
         elif isinstance(target, (list, tuple)):
-            has = name in target
+            has = key in target
         else:
-            has = hasattr(target, name)
+            has = hasattr(target, key)
 
         return (   has
-                or (self.__kwargs and name in self.__kwargs)
-                or (self.__parent and name in self.__parent))
+                or (self.__kwargs and key in self.__kwargs)
+                or (hasattr(self.KeyValueDefault, key))
+                or (self.__parent and key in self.__parent))
 
-    def __resolve_value(self, name, target, context,
+    def __resolve_value(self, key, target, context,
                               default=__ShouldThrow):
-        if '.' in name:
-            namelist = name.split('.')
-            for n in namelist[:-1]:
+        if '.' in key:
+            keylist = key.split('.')
+            for n in keylist[:-1]:
                 if isinstance(target, KeyValueStore):
                     target = self.__resolve_value(n, target, context, default)
                 else:
                     target = target[n]
-            name = namelist[-1]
+            key = keylist[-1]
 
-        if isinstance(target, dict):
-            value = target.get(name, KeyValueStore.__Default)
+        # The order of resolution is really important here:
+        #     1. If the key is a direct attribute of the object, return that.
+        #     2. If the key is a direct attribute of the kwargs, return that.
+        #     3. If the parent contains the key, return that.
+        #     4. If the KeyValueDefault class is defined in the class, fetch that value.
+        #     5. Finally, returns the default value (or throw).
+        # Covering case 1 for dictionaries, lists and tuples, and attributes on self.
+        if isinstance(target, dict) and key in target:
+            return self.__format_value(target[key], target, context)
         elif isinstance(target, (list, tuple)):
-            value = target[name]
+            return self.__format_value(target[int(key)], target, context)
+        elif hasattr(target, key):
+            return self.__format_value(getattr(target, key), target, context)
+
+        # Case 2.
+        elif key in self.__kwargs:
+            return self.__format_value(self.__kwargs[key], target, context)
+        # Case 3.
+        elif target.__parent and key in target.__parent:
+            return self.__resolve_value(key, self.__parent, context, default)
+
+        # Case 4.
+        elif (    hasattr(target.__class__, 'KeyValueDefault')
+              and hasattr(target.__class__.KeyValueDefault, key)):
+            return self.__format_value(getattr(target.__class__.KeyValueDefault, key),
+                                       target, context)
+
+        # Case 5.
+        elif default is KeyValueStore.__ShouldThrow:
+            raise Exception('Could not find value keyd "%s".' % key)
         else:
-            value = getattr(target, name, KeyValueStore.__Default)
+            return self.__format_value(default, target, context)
 
-        if value == KeyValueStore.__Default:
-            if name in self.__kwargs:
-                return self.__format_value(self.__kwargs[name], target, context)
-            elif self.__parent:
-                return self.__parent.__resolve_value(name, self.__parent,
-                                                     context, default)
-            elif default is KeyValueStore.__ShouldThrow:
-                raise Exception('Could not find value named "%s".' % name)
-            else:
-                return default
-
+    def __contains__(self, key):
+        return self.__has_value(key, self, self)
+    def __getitem__(self, key):
+        return self.__resolve_value(key, self, self)
+    def __setitem__(self, key, value):
+        if hasattr(self, key):
+            setattr(self, key, value)
         else:
-            if self.__parent and self.__parent.__has_value(name, self.__parent, context):
-                parent_value = self.__parent.__resolve_value(name, self.__parent,
-                                                             context, default)
-                if parent_value:
-                    return parent_value
-            return self.__format_value(value, target, context)
-
-    def __contains__(self, name):
-        return self.__has_value(name, self, self)
-    def __getitem__(self, name):
-        return self.__resolve_value(name, self, self)
+            self.__kwargs[key] = value
+        return value
 
     @property
     def parent(self):
