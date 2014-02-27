@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from component import ComponentBase
+from base import ComponentBase
 
 import os
 import signal
@@ -29,3 +29,9 @@ class PythonCommandLineTool(CommandLineTool):
     def start(self):
         super(PythonCommandLineTool, self).start(
             'python', [self['tool_bin']] + list(self['tool_args']))
+
+
+class JavaCommandLineTool(CommandLineTool):
+    def start(self):
+        super(PythonCommandLineTool, self).start(
+            'java', [self['tool_bin']] + list(self['tool_args']))

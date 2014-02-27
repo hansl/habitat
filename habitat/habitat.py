@@ -1,5 +1,5 @@
 # Copyright (C) 2013 Coders at Work
-from component import ComponentBase
+from base import ComponentBase
 from dashboard import DashboardComponent
 from dictionary import Dictionary
 from dependency import order_dependencies
@@ -57,35 +57,40 @@ class Habitat(ComponentBase):
             os.makedirs(os.path.dirname(metadata_path))
         self.metadata = MetaDataFile(metadata_path)
 
+        self.name = self.habitat_name
+
         for name, component in self.get_all_components().iteritems():
             component.habitat = self
-            if 'name' not in component:
+            if not hasattr(component, 'name'):
                 component.name = name
             if component.name not in self.metadata:
                 self.metadata[component.name] = {}
             component.metadata = self.metadata[component.name]
 
+        # If we should start the Habitat, run the first argument as a command.
         if should_start:
-            self.start()
-            self.wait_if_needed()
-            self.stop()
+            if self._args:
+                command = self._args[0]
+            else:
+                command = 'run'
+            self.command(command, *self._args[1:])
 
     def port(self):
         c = self.get_component_from_stack()
+        if not c:
+            c = self
         if c not in self._port_map:
             self._port_map[c] = self['base_port'] + len(self._port_map.keys())
-        print "Component %s --> %d" % (c.name, self._port_map[c])
         return self._port_map[c]
 
     def command(self, command, *args):
         getattr(self.Commands, command)(self, *args)
 
     def start(self):
-        if self._args:
-            command = self._args[0]
-        else:
-            command = 'run'
-        self.command(command, *self._args[1:])
+        for server in self.get_all_components().values():
+            if server.start != ComponentBase.start:
+                print 'Starting %s...' % (server.name,)
+            server.start()
 
     def wait_if_needed(self):
         # If we are running a component, we wait for a CTRL-C from the user.
@@ -131,10 +136,10 @@ class Habitat(ComponentBase):
         i = 2
         # Get the first stack level out of Habitat
         stack = inspect.stack()[i]
-        while isinstance(stack[0].f_locals["self"], Habitat):
+        while 'self' in stack[0].f_locals and isinstance(stack[0].f_locals["self"], Habitat):
             i += 1
             stack = inspect.stack()[i]
-        if isinstance(stack[0].f_locals["self"], ComponentBase):
+        if 'self' in stack[0].f_locals and isinstance(stack[0].f_locals["self"], ComponentBase):
             return stack[0].f_locals["self"]
         return None
 
@@ -179,13 +184,9 @@ class Habitat(ComponentBase):
         @staticmethod
         def run(habitat, *args):
             """Run a list of components by their names."""
-            if 0 == len(args):
-                args = habitat.get_ordered_components().values()
-
-            for server in args:
-                if server.start != ComponentBase.start:
-                    print 'Starting %s...' % (server.name,)
-                server.start()
+            habitat.start()
+            habitat.wait_if_needed()
+            habitat.stop()
 
         @staticmethod
         def show(habitat, *args):

@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from component import ComponentBase
+from base import ComponentBase
 from environment import SystemEnvironment
 
 import os
@@ -15,4 +15,13 @@ class InstallerBase(ComponentBase):
         if not self.is_installed():
             self.install()
             self.metadata['installed'] = True
-        super(Installer, self).start()
+        super(InstallerBase, self).start()
+
+
+class BrewInstaller(InstallerBase):
+    def is_installed(self):
+        stdout, stderr = self._env.execute_or_die('brew', 'search', self['brew'])
+        return bool(stdout)
+
+    def install(self):
+        self._env.execute_or_die('brew', 'install', self['brew'])

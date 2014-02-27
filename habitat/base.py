@@ -6,13 +6,14 @@ import os
 import sys
 
 
-class ComponentBase(Dictionary):
-    class State:
-        STOPPED = 0
-        RUNNING = 1
+class ComponentState:
+    STOPPED = 0
+    RUNNING = 1
 
+
+class ComponentBase(Dictionary):
     _habitat = None
-    _state = State.STOPPED
+    _state = ComponentState.STOPPED
 
     def __init__(self, deps=None, env=None, **kwargs):
         super(ComponentBase, self).__init__(**kwargs)
@@ -34,12 +35,12 @@ class ComponentBase(Dictionary):
     def state(self, state):
         self._state = state
     def is_running(self):
-        return self._state
+        return self._state == ComponentState.RUNNING
 
     def start(self):
-        self._state = ComponentBase.State.RUNNING
+        self._state = ComponentState.RUNNING
     def stop(self):
-        self._state = ComponentBase.State.STOPPED
+        self._state = ComponentState.STOPPED
 
     # Dictionary related functions.
     def env(self):

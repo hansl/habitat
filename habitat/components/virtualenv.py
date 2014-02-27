@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from .. import Installer as InstallerBase
+from .. import InstallerBase
 
 import os
 

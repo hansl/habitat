@@ -6,6 +6,12 @@ import os
 
 class ElasticSearchServer(ServerBase):
     server_bin = 'elasticsearch'
-    server_args = ['--config=%(elasticsearch_config_path)s']
+
+    server_args = [
+        '--config=%(elasticsearch_config_path)s',
+        '-Des.http.port=%(port)d',
+        '-Des.network.host=%(host)s'
+    ]
+
     server_env = {
     }

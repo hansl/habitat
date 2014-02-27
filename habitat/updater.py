@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from component import ComponentBase
+from base import ComponentBase
 from environment import SystemEnvironment
 from metadata import MetaDataFile, PythonCommentStorage
 

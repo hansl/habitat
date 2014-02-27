@@ -110,10 +110,16 @@ class Executer(object):
             if interactive:
                 sys.stdout.write(msg)
                 sys.stdout.flush()
+            else:
+                for line in msg.split('\n'):
+                    sys.stdout.write('>>> %s\n' % (line))
             self.__stdout.append(msg)
         def pipeStderr(msg):
             if interactive:
                 sys.stderr.write(msg)
+            else:
+                for line in msg.split('\n'):
+                    sys.stdout.write('ERR %s\n' % (line))
             self.__stderr.append(msg)
 
         thread, process = self.__exec_thread(
@@ -130,6 +136,8 @@ class Executer(object):
         stderr = '\n'.join(self.__stderr)
         self.__stdout = None
         self.__stderr = None
+
+        print '\n\n'
         return (process.returncode, stdout, stderr)
 
     def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):

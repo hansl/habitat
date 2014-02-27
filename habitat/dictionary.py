@@ -29,6 +29,10 @@ class Dictionary(object):
 
     class __ShouldThrow:
         pass
+
+    class __Default:
+        pass
+
     def _format_value(self, value, context):
         if isinstance(value, basestring):
             return value % context
@@ -66,19 +70,16 @@ class Dictionary(object):
                     target = target[n]
             name = namelist[-1]
 
-        class __Default:
-            pass
-
         if isinstance(target, dict):
-            value = target.get(name, __Default)
+            value = target.get(name, Dictionary.__Default)
         elif isinstance(target, (list, tuple)):
             value = target[name]
         else:
-            value = getattr(target, name, __Default)
+            value = getattr(target, name, Dictionary.__Default)
 
-        if value == __Default:
-            if value in self.__kwargs:
-                return self._format_value(self.__kwargs[value], context)
+        if value == Dictionary.__Default:
+            if name in self.__kwargs:
+                return self._format_value(self.__kwargs[name], context)
             elif self.__parent:
                 return self.__parent._resolve_value(name, self.__parent,
                                                     context, default)

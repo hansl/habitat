@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from component import ComponentBase
+from base import ComponentBase
 
 import os
 import sys
