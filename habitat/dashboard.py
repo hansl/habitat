@@ -1,5 +1,5 @@
 # Copyright (C) 2013 Coders at Work
-from component import ComponentBase
+from base import ComponentBase
 
 from threading import Thread
 from wsgiref.simple_server import make_server
@@ -16,8 +16,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 class DashboardComponent(ComponentBase):
-    server_port = '%(port)d'
-
     def application(self, env, start_response):
         start_response('200 OK', [('Content-Type','text/html')])
         return ["Hello World 123"]
@@ -26,13 +24,10 @@ class DashboardComponent(ComponentBase):
         self.httpd = make_server(host, port, self.application)
         self.httpd.serve_forever()
 
-    def start(self):
-        self.thread = Thread(target=self.serve, args=[self['host'], int(self['server_port'])])
-        self.thread.daemon = True
+    def _start(self):
+        self.thread = Thread(target=self.serve, args=[self['host'], int(self['port'])])
         self.thread.start()
-        super(DashboardComponent, self).start()
 
-    def stop(self):
+    def _stop(self):
         Thread(target=self.httpd.shutdown).start()
         self.thread.join()
-        super(DashboardComponent, self).stop()

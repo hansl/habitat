@@ -4,7 +4,8 @@ from .. import InstallerBase
 import os
 
 class Installer(InstallerBase):
-    virtualenv_root = '%(habitat_root)s/virtualenv'
+    class KeyValueDefault:
+        virtualenv_root = '%(habitat_root)s/virtualenv'
 
     def is_installed(self):
         return os.path.exists(self['virtualenv_root'])

@@ -11,11 +11,10 @@ class InstallerBase(ComponentBase):
     def install(self):
         pass
 
-    def start(self):
+    def _start(self):
         if not self.is_installed():
             self.install()
             self.metadata['installed'] = True
-        super(InstallerBase, self).start()
 
 
 class BrewInstaller(InstallerBase):

@@ -3,6 +3,7 @@ from base import ComponentBase
 from habitat import Habitat
 
 from cmdline import *
+from dashboard import DashboardComponent
 from environment import *
 from installer import *
 from server import *

@@ -1,11 +1,12 @@
 # Copyright (C) 2013 Coders at Work
 from base import ComponentBase
-from dashboard import DashboardComponent
 from keyvalue import KeyValueStore
 from dependency import order_dependencies
 from environment import NullEnvironment, SystemEnvironment
 from executer import Executer
 from metadata import MetaDataFile
+
+import util
 
 from collections import OrderedDict
 
@@ -30,16 +31,14 @@ except ImportError:
 
 
 class Habitat(ComponentBase):
-    user = getpass.getuser()
-    home = os.path.expanduser("~")
-    habitat_root = '%(home)s/.habitats/%(habitat_name)s'
-    metadata_path = '%(habitat_root)s/metadata'
+    class KeyValueDefault:
+        user = getpass.getuser()
+        home = os.path.expanduser("~")
+        habitat_root = '%(home)s/.habitats/%(habitat_name)s'
+        metadata_path = '%(habitat_root)s/metadata'
 
-    base_port = 8000
-
-    host = '127.0.0.1'
-
-    dashboard = DashboardComponent(server_port='%(port)s')
+        base_port = 8000
+        host = '127.0.0.1'
 
     class __ShouldThrow(object):
         pass
@@ -80,17 +79,20 @@ class Habitat(ComponentBase):
         if not c:
             c = self
         if c not in self._port_map:
-            self._port_map[c] = self['base_port'] + len(self._port_map.keys())
+            port = self['base_port'] + len(self._port_map.keys())
+            while util.is_port_in_use(port):
+                port += 1
+            self._port_map[c] = port
         return self._port_map[c]
 
     def command(self, command, *args):
         getattr(self.Commands, command)(self, *args)
 
-    def start(self):
+    def _start(self):
         for server in self.get_all_components().values():
-            if server.start != ComponentBase.start:
-                print 'Starting %s...' % (server.name,)
             server.start()
+
+        self.metadata.storage.save()        
 
     def wait_if_needed(self):
         # If we are running a component, we wait for a CTRL-C from the user.
@@ -108,10 +110,9 @@ class Habitat(ComponentBase):
             except KeyboardInterrupt:
                 pass
 
-    def stop(self):
-        for name, component in reversed(self.get_ordered_components().items()):
+    def _stop(self):
+        for name, component in reversed(self.get_all_components().items()):
             if component.is_running():
-                print 'Stopping "%s"...' % (component.name,)
                 component.stop()
 
         self.metadata.storage.save()        
@@ -143,26 +144,11 @@ class Habitat(ComponentBase):
             return stack[0].f_locals["self"]
         return None
 
-    def get_ordered_components(self):
-        all_components = self.get_all_components().keys()
-        dependencies = {
-                name: (  [dep.name for dep in getattr(self, name).deps]
-                       + ([getattr(self, name)._env.name]) if getattr(self, name)._env else [])
-                for name in all_components
-            }
-        ordered_components = order_dependencies(dependencies)
-
-        return OrderedDict([
-                (name, getattr(self, name))
-                for name in ordered_components
-            ])
-
     def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. Throw an exception if the command
            failed.
         """
-        print '... %s' % (cmd,)
         return self.executer.execute_or_die(cmd, env, cwd, **kwargs)
 
     def execute_in_thread(self, cmd, env={}, cwd=None, **kwargs):
@@ -170,14 +156,12 @@ class Habitat(ComponentBase):
            STDOUT/STDERR to the local logs. The tool is ran in a separate
            thread.
         """
-        print '... %s' % (cmd,)
         return self.executer.execute_in_thread(cmd, env, cwd, **kwargs)
 
     def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran interactively.
         """
-        print '... %s' % (cmd,)
         return self.executer.execute_interactive(cmd, env, cwd, **kwargs)
 
     class Commands:
@@ -197,12 +181,13 @@ class Habitat(ComponentBase):
             """
             if not args:
                 habitat.command('help', 'show')
+                return
             for key in args:
                 if key in habitat:
                     print '%25s["%s"] == "%s"' % (
                         habitat.habitat_name, key, habitat[key])
 
-                for name, component in habitat.get_ordered_components().iteritems():
+                for name, component in habitat.get_all_components().iteritems():
                     if key in component:
                         print '%25s["%s"] == "%s"' % (name, key, component[key])
 

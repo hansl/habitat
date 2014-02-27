@@ -116,6 +116,7 @@ class SystemEnvironment(EnvironmentBase):
 class ComponentBinHelperMixin(object):
     def binary_path(self, name):
         bin_root = self['bin_root']
+        print bin_root
         if isinstance(bin_root, basestring):
             bin_root = [bin_root]
         return [
@@ -128,8 +129,9 @@ class ComponentBinHelperMixin(object):
 
 
 class VirtualEnvEnvironment(ComponentBinHelperMixin, EnvironmentBase):
-    virtualenv_root = '%(habitat_root)s'
-    bin_root = '%(virtualenv_root)s/bin'
+    class KeyValueDefault:
+        virtualenv_root = '%(habitat_root)s'
+        bin_root = '%(virtualenv_root)s/bin'
 
     def extend_environment(self, env):
         root = os.path.abspath(self['virtualenv_root'])

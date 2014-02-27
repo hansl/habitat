@@ -92,7 +92,7 @@ class KeyValueStore(object):
 
         return (   has
                 or (self.__kwargs and key in self.__kwargs)
-                or (hasattr(self.KeyValueDefault, key))
+                or (hasattr(self, 'KeyValueDefault') and hasattr(self.KeyValueDefault, key))
                 or (self.__parent and key in self.__parent))
 
     def __resolve_value(self, key, target, context,

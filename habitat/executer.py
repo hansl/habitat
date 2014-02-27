@@ -122,6 +122,7 @@ class Executer(object):
                     sys.stdout.write('ERR %s\n' % (line))
             self.__stderr.append(msg)
 
+        print '... %s' % (cmd,)
         thread, process = self.__exec_thread(
             logger,
             cmd,

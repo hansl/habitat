@@ -6,7 +6,7 @@ import signal
 
 
 class CommandLineTool(ComponentBase):
-    def start(self, bin=None, args=None, cwd=None, env=None):
+    def _start(self, bin=None, args=None, cwd=None, env=None):
         if not bin:
             bin = self['tool_bin']
         if not args:
@@ -22,16 +22,15 @@ class CommandLineTool(ComponentBase):
                                                              cwd=cwd,
                                                              env=env,
                                                              *args)
-        super(CommandLineTool, self).start()
 
 
 class PythonCommandLineTool(CommandLineTool):
-    def start(self):
-        super(PythonCommandLineTool, self).start(
+    def _start(self):
+        super(PythonCommandLineTool, self)._start(
             'python', [self['tool_bin']] + list(self['tool_args']))
 
 
 class JavaCommandLineTool(CommandLineTool):
-    def start(self):
-        super(PythonCommandLineTool, self).start(
+    def _start(self):
+        super(PythonCommandLineTool, self)._start(
             'java', [self['tool_bin']] + list(self['tool_args']))

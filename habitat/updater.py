@@ -14,7 +14,7 @@ class Updater(ComponentBase):
     def update(self):
         pass
 
-    def start(self):
+    def _start(self):
         version = self.version()
         if not isinstance(version, LooseVersion):
             version = LooseVersion(version)
@@ -29,7 +29,6 @@ class Updater(ComponentBase):
 
             self.update()
             self.metadata['version'] = version
-        super(Updater, self).start()
 
 
 class PipUpdater(Updater):
