@@ -15,10 +15,11 @@ class ComponentBase(KeyValueStore):
     _habitat = None
     _state = ComponentState.STOPPED
 
-    def __init__(self, deps=None, env=None, **kwargs):
+    def __init__(self, deps=None, env=None, disabled=False, **kwargs):
         super(ComponentBase, self).__init__(**kwargs)
         self._deps = deps or []
         self._env = env
+        self._disabled = disabled
 
     @property
     def habitat(self):
