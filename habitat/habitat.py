@@ -1,7 +1,6 @@
 # Copyright (C) 2013 Coders at Work
 from base import ComponentBase
 from keyvalue import KeyValueStore
-from dependency import order_dependencies
 from environment import NullEnvironment, SystemEnvironment
 from executer import Executer
 from metadata import MetaDataFile
@@ -168,6 +167,18 @@ class Habitat(ComponentBase):
             habitat.start()
             habitat.wait_if_needed()
             habitat.stop()
+
+        @staticmethod
+        def depgraph(habitat, *args):
+            """Show the list of dependencies from the habitat."""
+            all_components = habitat.get_all_components()
+            all_deps = util.order_dependencies({
+                    name: [dep.name for dep in component.deps]
+                    for name, component in all_components.iteritems()
+                })
+            for name in all_deps:
+                print '%25s: %s' % (name,
+                    [dep.name for dep in all_components[name].deps])
 
         @staticmethod
         def show(habitat, *args):

@@ -26,6 +26,7 @@ class ComponentBase(KeyValueStore):
     _habitat = None
     _state = ComponentState.STOPPED
     _name = None
+    _env = None
 
     def __init__(self, habitat=None, deps=None, env=None, disabled=False, **kwargs):
         super(ComponentBase, self).__init__(**kwargs)
@@ -50,7 +51,11 @@ class ComponentBase(KeyValueStore):
 
     @property
     def deps(self):
-        return self._deps
+        if self._env:
+            return self._deps + [self._env]
+        else:
+            return self._deps
+
     @property
     def name(self):
         if self._name is None:
@@ -81,10 +86,11 @@ class ComponentBase(KeyValueStore):
         if self._state != ComponentState.STOPPED:
             raise InvalidComponentState(self.name, self._state)
 
-        print 'Starting component "%s"...' % (self.name, )
         self._state = ComponentState.STARTING
         for dep in self.deps:
             dep.start()
+
+        print 'Starting component "%s"...' % (self.name, )
         self._start()
         self._state = ComponentState.RUNNING
     def stop(self):
@@ -93,10 +99,11 @@ class ComponentBase(KeyValueStore):
         if self._state != ComponentState.RUNNING:
             raise InvalidComponentState(self.name, self._state)
 
-        print 'Stopping component "%s"...' % (self.name, )
         self._state = ComponentState.STOPPING
         for dep in self.deps:
             dep.stop()
+
+        print 'Stopping component "%s"...' % (self.name, )
         self._stop()
         self._state = ComponentState.STOPPED
 

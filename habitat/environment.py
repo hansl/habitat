@@ -20,12 +20,6 @@ class NullEnvironment(ComponentBase):
 
 class EnvironmentBase(ComponentBase):
     _habitat = None
-    _parent = None
-
-    def __init__(self, parent=None, **kwargs):
-        if parent:
-            self._parent = parent
-        super(EnvironmentBase, self).__init__(**kwargs)
 
     # Used by Habitat.
     def install(self):
@@ -39,16 +33,16 @@ class EnvironmentBase(ComponentBase):
         path = self.binary_path(name)
         if path:
             return path[0]
-        elif self._parent:
-            return self._parent.find_binary(name)
+        elif self._env:
+            return self._env.find_binary(name)
         else:
             return None
 
     def build_environment(self):
         env = DEFAULT_ENVIRONMENT
-        if self._parent:
-            self._parent = self._habitat.get_component(self._parent)
-            env = dict(self._parent.build_environment().items() + env.items())
+        if self._env:
+            self._env = self._habitat.get_component(self._env)
+            env = dict(self._env.build_environment().items() + env.items())
         return self.extend_environment(env)
     def execute(self, cmd, *args, **kwargs):
         env = kwargs.pop('env', {})
@@ -116,7 +110,6 @@ class SystemEnvironment(EnvironmentBase):
 class ComponentBinHelperMixin(object):
     def binary_path(self, name):
         bin_root = self['bin_root']
-        print bin_root
         if isinstance(bin_root, basestring):
             bin_root = [bin_root]
         return [

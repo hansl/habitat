@@ -28,6 +28,7 @@ class DjangoServer(PythonServer):
     server_env = {
         'DJANGO_SETTINGS_MODULE': '%(django_settings)s'
     }
+    wait_for_regex = r'Quit the server with CONTROL-C\.$'
 
     def server_cwd(self):
         return os.path.dirname(self['django_manage_path'])
