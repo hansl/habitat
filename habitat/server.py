@@ -4,13 +4,15 @@ from base import ComponentBase
 import util
 
 import os
+import re
 import signal
+import time
 
 
 class ServerBase(ComponentBase):
     server_cwd = None
 
-    def _start(self, bin=None, args=None, cwd=None, env=None):
+    def _start(self, bin=None, args=None, cwd=None, env=None, wait_for_regex=None):
         if not bin:
             bin = self['server_bin']
         if not args:
@@ -27,10 +29,26 @@ class ServerBase(ComponentBase):
         if util.is_port_in_use(self['port']):
             raise Exception('Port %d for server "%s" already in use.'
                             % (self['port'], self.name))
+        if not wait_for_regex and 'wait_for_regex' in self:
+            wait_for_regex = self['wait_for_regex']
+
+        stdoutFn = None
+        self._waiting = False
+        if wait_for_regex:
+            self._waiting = True
+            def stdoutWait(msg):
+                msg = msg.strip()
+                if re.search(wait_for_regex, msg):
+                    self._waiting = False
+            stdoutFn = stdoutWait
+
         self.thread, self.process = self._env.execute(bin,
                                                       cwd=cwd,
                                                       env=env,
+                                                      stdoutFn=stdoutFn,
                                                       *args)
+        while self._waiting:
+            time.sleep(0.1)
 
     def _stop(self):
         try:

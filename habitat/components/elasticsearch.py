@@ -15,3 +15,6 @@ class ElasticSearchServer(ServerBase):
 
     server_env = {
     }
+
+    # This server waits for this before being considered started.
+    wait_for_regex = ' started$'

@@ -146,7 +146,7 @@ class Executer(object):
            STDOUT/STDERR to the local logs. Throw an exception if the command
            failed.
         """
-        retcode, stdout, stderr = self.__exec(kwargs.pop('logger', None), cmd, env=env, cwd=cwd)
+        retcode, stdout, stderr = self.__exec(kwargs.pop('logger', None), cmd, env=env, cwd=cwd, **kwargs)
         if retcode != 0:
             raise Exception('Command failed.')
         return stdout, stderr
@@ -156,12 +156,12 @@ class Executer(object):
            STDOUT/STDERR to the local logs. The tool is ran in a separate
            thread.
         """
-        return self.__exec_thread(kwargs.pop('logger', None), cmd, env, cwd)
+        return self.__exec_thread(kwargs.pop('logger', None), cmd, env, cwd, **kwargs)
 
     def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran interactively.
         """
         return self.__exec(kwargs.pop('logger', None), cmd, env, cwd,
-                           interactive=True)
+                           interactive=True, **kwargs)
 

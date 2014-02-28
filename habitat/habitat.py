@@ -46,7 +46,7 @@ class Habitat(ComponentBase):
     def __init__(self, should_start=True, *args, **kwargs):
         self.executer = Executer()
         self.habitat_name = self.__class__.__name__
-        super(Habitat, self).__init__()
+        super(Habitat, self).__init__(name='%(habitat_name)s')
         self._args = args
         self._port_map = {}
 
@@ -56,12 +56,9 @@ class Habitat(ComponentBase):
             os.makedirs(os.path.dirname(metadata_path))
         self.metadata = MetaDataFile(metadata_path)
 
-        self.name = self.habitat_name
-
         for name, component in self.get_all_components().iteritems():
             component.habitat = self
-            if not hasattr(component, 'name'):
-                component.name = name
+            component.name = name
             if component.name not in self.metadata:
                 self.metadata[component.name] = {}
             component.metadata = self.metadata[component.name]
