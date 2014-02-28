@@ -44,15 +44,6 @@ class Executer(object):
         return (process, (master_out_fd, slave_out_fd), (master_err_fd, slave_err_fd))
 
     def __exec_thread_main(self, logger, process, stdoutFn=None, stderrFn=None, endFn=None, errFn=None):
-        def _stdout(msg):
-            if logger:
-                logger.info(msg)
-            print 'OUT: %s' % (msg,)
-        def _stderr(msg):
-            if logger:
-                logger.error(msg, *args)
-            print 'ERR: %s' % (msg,)
-
         try:
             process, out_fd, err_fd = process
 
@@ -65,18 +56,18 @@ class Executer(object):
                 for fd in readables:
                     if fd == master_out_fd:
                         data = os.read(master_out_fd, 1024)
-                        if stdoutFn:
-                            stdoutFn(data)
-                        else:
+                        if not stdoutFn or bool(stdoutFn(data)):
+                            if logger:
+                                logger.info(data)
                             for line in data.rstrip().split('\n'):
-                                _stdout(line)
+                                print 'OUT: %s' % (line,)
                     elif fd == master_err_fd:
                         data = os.read(master_err_fd, 1024)
-                        if stderrFn:
-                            stderrFn(data)
-                        else:
+                        if not stderrFn or bool(stderrFn(data)):
+                            if logger:
+                                logger.error(data)
                             for line in data.rstrip().split('\n'):
-                                _stderr(line)
+                                print 'ERR: %s' % (line,)
 
                 if process.poll() is not None:
                     # We're done.

@@ -40,6 +40,7 @@ class ServerBase(ComponentBase):
                 msg = msg.strip()
                 if re.search(wait_for_regex, msg):
                     self._waiting = False
+                return True
             stdoutFn = stdoutWait
 
         self.thread, self.process = self._env.execute(bin,
