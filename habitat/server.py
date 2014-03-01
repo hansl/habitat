@@ -55,7 +55,7 @@ class ServerBase(ComponentBase):
         timeout = self['timeout']
         startDate = datetime.datetime.now()
         while self._waiting:
-            if (datetime.datetime.now() - startDate).total_seconds > timeout:
+            if (datetime.datetime.now() - startDate).total_seconds() > timeout:
                 self.process.send_signal(signal.SIGTERM)
                 raise Exception('Timing out while starting a server.')
             time.sleep(0.1)
