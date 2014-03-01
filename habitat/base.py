@@ -134,3 +134,10 @@ class ComponentBase(KeyValueStore):
         else:
             return None
 
+
+class NullComponent(ComponentBase):
+    """Component that can be used to simplify the dependency graph. It does
+       not implement anything.
+    """
+    pass
+

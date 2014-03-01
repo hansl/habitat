@@ -1,5 +1,5 @@
 # Copyright (C) 2014 Coders at Work
-from base import ComponentBase
+from base import ComponentBase, NullComponent
 from habitat import Habitat
 
 from cmdline import *
