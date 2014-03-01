@@ -183,14 +183,23 @@ class Habitat(ComponentBase):
         @staticmethod
         def depgraph(habitat, *args):
             """Show the list of dependencies from the habitat."""
+            def print_curr_node(tree, depname, level, shown=[]):
+                deps = tree[depname]
+                print '%s%s' % ('    ' * level, depname)
+                for dep in reversed(deps):
+                    print_curr_node(tree, dep, level + 1)
+                    tree[dep] = []
+
             all_components = habitat.get_all_components()
-            all_deps = util.order_dependencies({
+            component_tree = {
                     name: [dep.name for dep in component.deps]
                     for name, component in all_components.iteritems()
-                })
-            for name in all_deps:
-                print '%25s: %s' % (name,
-                    [dep.name for dep in all_components[name].deps])
+                }
+            all_deps = util.order_dependencies(component_tree)
+
+            for name in reversed(all_deps):
+                if component_tree[name]:
+                    print_curr_node(component_tree, name, 0)
 
         @staticmethod
         def show(habitat, *args):
@@ -215,18 +224,23 @@ class Habitat(ComponentBase):
         def help(habitat, *args):
             """Output all accepted commands and their docstring if available.
             """
-            print '   Command          Description'
-            print '-' * 80
+            all_commands = [
+                method
+                for method in dir(habitat.Commands)
+                if not method.startswith('_') and not method in args
+            ]
+            length = sorted([len(cmd) for cmd in all_commands])[-1] + 4
+
+            format_str = '  %%%ss  %%s' % str(length)
+            print format_str % ('Command', 'Description')
+            print '-' * (length + 70)
             for method in dir(habitat.Commands):
                 if method.startswith('_'):
                     continue
                 if args and not method in args:
                     continue
 
-                doc = getattr(habitat.Commands, method).__doc__
-                if not doc:
-                    print '   %-16s' % (method)
-                else:
-                    doc = textwrap.fill(doc, 60, subsequent_indent=' ' * 20)
-                    print '   %-16s %-60s' % (method, doc)
+                doc = getattr(habitat.Commands, method).__doc__ or ''
+                doc = textwrap.fill(doc, 60, subsequent_indent=' ' * (length + 4))
+                print format_str % (method, doc)
 
