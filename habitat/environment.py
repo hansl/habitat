@@ -44,10 +44,19 @@ class EnvironmentBase(ComponentBase):
             self._env = self._habitat.get_component(self._env)
             env = dict(self._env.build_environment().items() + env.items())
         return self.extend_environment(env)
-    def execute(self, cmd, *args, **kwargs):
+
+    def execute(self, cmd, **kwargs):
+        env = kwargs.pop('env', {})
+        return self._habitat.execute(
+            cmd=[self.find_binary(cmd[0]),] + cmd[1:],
+            logger=None,
+            env=dict(self.build_environment().items() + env.items()),
+            **kwargs
+            )
+    def execute_in_thread(self, cmd, **kwargs):
         env = kwargs.pop('env', {})
         return self._habitat.execute_in_thread(
-            cmd=(self.find_binary(cmd),) + args,
+            cmd=[self.find_binary(cmd[0]),] + cmd[1:],
             logger=None,
             env=dict(self.build_environment().items() + env.items()),
             **kwargs
@@ -55,7 +64,7 @@ class EnvironmentBase(ComponentBase):
     def execute_or_die(self, cmd, *args, **kwargs):
         env = kwargs.pop('env', {})
         return self._habitat.execute_or_die(
-            cmd=(self.find_binary(cmd),) + args,
+            cmd=[self.find_binary(cmd[0]),] + cmd[1:],
             logger=None,
             env=dict(self.build_environment().items() + env.items()),
             **kwargs
@@ -63,7 +72,7 @@ class EnvironmentBase(ComponentBase):
     def execute_interactive(self, cmd, *args, **kwargs):
         env = kwargs.pop('env', {})
         return self._habitat.execute_interactive(
-            cmd=(self.find_binary(cmd),) + args,
+            cmd=[self.find_binary(cmd[0]),] + cmd[1:],
             logger=None,
             env=dict(self.build_environment().items() + env.items()),
             **kwargs

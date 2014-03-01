@@ -93,10 +93,10 @@ class ComponentBase(KeyValueStore):
         print 'Starting component "%s"...' % (self.name, )
         self._start()
         self._state = ComponentState.RUNNING
-    def stop(self):
+    def stop(self, force=False):
         if self._state == ComponentState.STOPPED:
             return
-        if self._state != ComponentState.RUNNING:
+        if self._state != ComponentState.RUNNING and not force:
             raise InvalidComponentState(self.name, self._state)
 
         self._state = ComponentState.STOPPING
@@ -106,6 +106,26 @@ class ComponentBase(KeyValueStore):
         print 'Stopping component "%s"...' % (self.name, )
         self._stop()
         self._state = ComponentState.STOPPED
+
+    def execute(self, **kwargs):
+        if self._env is None:
+            raise Exception('No environment.')
+        return self._env.execute(**kwargs)
+
+    def execute_or_die(self, **kwargs):
+        if self._env is None:
+            raise Exception('No environment.')
+        return self._env.execute_or_die(**kwargs)
+
+    def execute_interactive(self, **kwargs):
+        if self._env is None:
+            raise Exception('No environment.')
+        return self._env.execute_interactive(**kwargs)
+
+    def execute_in_thread(self, **kwargs):
+        if self._env is None:
+            raise Exception('No environment.')
+        return self._env.execute_in_thread(**kwargs)
 
     # KeyValue related functions.
     def env(self):

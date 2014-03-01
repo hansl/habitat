@@ -3,6 +3,7 @@ from base import ComponentBase
 
 import util
 
+import datetime
 import os
 import re
 import signal
@@ -43,12 +44,20 @@ class ServerBase(ComponentBase):
                 return True
             stdoutFn = stdoutWait
 
-        self.thread, self.process = self._env.execute(bin,
-                                                      cwd=cwd,
-                                                      env=env,
-                                                      stdoutFn=stdoutFn,
-                                                      *args)
+        def cancelFn():
+            self._waiting = False
+
+        self.thread, self.process = self.execute_in_thread(cmd=[bin] + args,
+                                                           cwd=cwd,
+                                                           env=env,
+                                                           stdoutFn=stdoutFn,
+                                                           errFn=cancelFn)
+        timeout = self['timeout']
+        startDate = datetime.datetime.now()
         while self._waiting:
+            if (datetime.datetime.now() - startDate).total_seconds > timeout:
+                self.process.send_signal(signal.SIGTERM)
+                raise Exception('Timing out while starting a server.')
             time.sleep(0.1)
 
     def _stop(self):

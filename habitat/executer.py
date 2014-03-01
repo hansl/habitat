@@ -132,6 +132,13 @@ class Executer(object):
         print '\n\n'
         return (process.returncode, stdout, stderr)
 
+    def execute(self, cmd, env={}, cwd=None, **kwargs):
+        """Run a command line tool using an environment and redirecting the
+           STDOUT/STDERR to the local logs. Throw an exception if the command
+           failed.
+        """
+        return self.__exec(kwargs.pop('logger', None), cmd, env=env, cwd=cwd, **kwargs)
+
     def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. Throw an exception if the command

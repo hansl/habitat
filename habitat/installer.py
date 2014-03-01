@@ -19,8 +19,8 @@ class InstallerBase(ComponentBase):
 
 class BrewInstaller(InstallerBase):
     def is_installed(self):
-        stdout, stderr = self._env.execute_or_die('brew', 'search', self['brew'])
-        return bool(stdout)
+        retcode, _, _ = self.execute(cmd=['brew', 'list', self['brew']])
+        return retcode == 0
 
     def install(self):
-        self._env.execute_or_die('brew', 'install', self['brew'])
+        self.execute_or_die(cmd=['brew', 'install', self['brew']])

@@ -18,10 +18,9 @@ class CommandLineTool(ComponentBase):
             cwd = self['tool_cwd']
         if not env and 'tool_env' in self:
             env = self['tool_env']
-        self.thread, self.process = self._env.execute_or_die(bin,
+        self.thread, self.process = self._env.execute_or_die(cmd=[bin] + args,
                                                              cwd=cwd,
-                                                             env=env,
-                                                             *args)
+                                                             env=env)
 
 
 class PythonCommandLineTool(CommandLineTool):

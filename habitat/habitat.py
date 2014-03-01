@@ -39,6 +39,8 @@ class Habitat(ComponentBase):
         base_port = 8000
         host = '127.0.0.1'
 
+        timeout = 30
+
     class __ShouldThrow(object):
         pass
 
@@ -85,10 +87,9 @@ class Habitat(ComponentBase):
         getattr(self.Commands, command)(self, *args)
 
     def _start(self):
-        for server in self.get_all_components().values():
-            server.start()
-
-        self.metadata.storage.save()        
+        for component in self.get_all_components().values():
+            component.start()
+            self.metadata.storage.save()
 
     def wait_if_needed(self):
         # If we are running a component, we wait for a CTRL-C from the user.
@@ -140,33 +141,44 @@ class Habitat(ComponentBase):
             return stack[0].f_locals["self"]
         return None
 
-    def execute_or_die(self, cmd, env={}, cwd=None, **kwargs):
+    def execute(self, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. Throw an exception if the command
            failed.
         """
-        return self.executer.execute_or_die(cmd, env, cwd, **kwargs)
+        return self.executer.execute(**kwargs)
 
-    def execute_in_thread(self, cmd, env={}, cwd=None, **kwargs):
+    def execute_or_die(self, **kwargs):
+        """Run a command line tool using an environment and redirecting the
+           STDOUT/STDERR to the local logs. Throw an exception if the command
+           failed.
+        """
+        return self.executer.execute_or_die(**kwargs)
+
+    def execute_in_thread(self, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran in a separate
            thread.
         """
-        return self.executer.execute_in_thread(cmd, env, cwd, **kwargs)
+        return self.executer.execute_in_thread(**kwargs)
 
-    def execute_interactive(self, cmd, env={}, cwd=None, **kwargs):
+    def execute_interactive(self, **kwargs):
         """Run a command line tool using an environment and redirecting the
            STDOUT/STDERR to the local logs. The tool is ran interactively.
         """
-        return self.executer.execute_interactive(cmd, env, cwd, **kwargs)
+        return self.executer.execute_interactive(**kwargs)
 
     class Commands:
         @staticmethod
         def run(habitat, *args):
             """Run a list of components by their names."""
-            habitat.start()
-            habitat.wait_if_needed()
-            habitat.stop()
+            try:
+                habitat.start()
+                habitat.wait_if_needed()
+            except Exception, ex:
+                print ex
+            finally:
+                habitat.stop(force=True)
 
         @staticmethod
         def depgraph(habitat, *args):

@@ -36,4 +36,5 @@ class PipUpdater(Updater):
         return MetaDataFile(self['pip_requirement'], storage=PythonCommentStorage)['version']
 
     def update(self):
-        self._env.execute_or_die('pip', 'install', '--upgrade', '-r%s' % (self['pip_requirement']))
+        self._env.execute_or_die(cmd=[
+            'pip', 'install', '--upgrade', '-r%s' % (self['pip_requirement'])])
