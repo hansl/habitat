@@ -32,3 +32,16 @@ class DjangoServer(PythonServer):
 
     def server_cwd(self):
         return os.path.dirname(self['django_manage_path'])
+
+    # Django commands.
+    class Commands(PythonServer.Commands):
+        @staticmethod
+        def dbshell(component):
+            DjangoCommand(
+                    'dbshell',
+                    name=component.name + '_DbShell',
+                    habitat=component.habitat,
+                    interactive=True,
+                    env=component._env,
+                    deps=component.deps
+                ).cycle()

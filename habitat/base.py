@@ -28,11 +28,17 @@ class ComponentBase(KeyValueStore):
     _name = None
     _env = None
 
-    def __init__(self, habitat=None, deps=None, env=None, disabled=False, **kwargs):
+    def __init__(self, habitat=None,
+                       name=None,
+                       deps=None,
+                       env=None,
+                       disabled=False,
+                     **kwargs):
         super(ComponentBase, self).__init__(**kwargs)
         self._deps = deps or []
         self._env = env
         self._disabled = disabled
+        self._name = name
 
         global last_component_id
         last_component_id += 1
@@ -133,6 +139,10 @@ class ComponentBase(KeyValueStore):
             return self._env.build_environment()
         else:
             return None
+
+    # Commands.
+    class Commands:
+        pass
 
 
 class NullComponent(ComponentBase):

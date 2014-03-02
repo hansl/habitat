@@ -83,8 +83,18 @@ class Habitat(ComponentBase):
             self._port_map[c] = port
         return self._port_map[c]
 
-    def command(self, command, *args):
-        getattr(self.Commands, command)(self, *args)
+    def command(self, name, *args):
+        if hasattr(self.Commands, name):
+            getattr(self.Commands, name)(self, *args)
+        elif (    name in self
+              and isinstance(self[name], ComponentBase)
+              and len(args) > 0
+              and hasattr(self[name].Commands, args[0])):
+            component = self[name]
+            name, args = args[0], args[1:]
+            getattr(component.Commands, name)(component, *args)
+        else:
+            self.command('help')
 
     def _start(self):
         for component in self.get_all_components().values():
