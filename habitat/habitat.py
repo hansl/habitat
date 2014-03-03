@@ -72,17 +72,6 @@ class Habitat(ComponentBase):
                 command = 'run'
             self.command(command, *self._args[1:])
 
-    def port(self):
-        c = self.get_component_from_stack()
-        if not c:
-            c = self
-        if c not in self._port_map:
-            port = self['base_port'] + len(self._port_map.keys())
-            while util.is_port_in_use(port):
-                port += 1
-            self._port_map[c] = port
-        return self._port_map[c]
-
     def command(self, name, *args):
         if hasattr(self.Commands, name):
             getattr(self.Commands, name)(self, *args)

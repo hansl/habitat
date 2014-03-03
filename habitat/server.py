@@ -5,15 +5,51 @@ import util
 
 import datetime
 import os
+import random
 import re
 import signal
 import time
 
 
+__RANDOM_PORT_MAP = {}
+def _random_port_for_component(component, nb):
+    if component in __RANDOM_PORT_MAP:
+        return __RANDOM_PORT_MAP[component]
+    else:
+        def find_nearest_port(port):
+            while util.is_port_in_use(port):
+                port += 1
+            return port
+
+        port_list = [
+            find_nearest_port(random.randint(9000, 15000))
+            for n in range(0, nb)
+        ]
+        __RANDOM_PORT_MAP[component] = port_list
+        return __RANDOM_PORT_MAP[component]
+
+
 class ServerBase(ComponentBase):
     server_cwd = None
 
+    def random_port(self, nb=1):
+        return _random_port_for_component(self, nb)
+
+    def _check_ports(self):
+        if not 'port' in self:
+            self['port'] = self.random_port(self['nb_ports'])
+        else:
+            port = self['port']
+            if not isinstance(port, list):
+                port = [port]
+            in_use = [p for p in port if util.is_port_in_use(p)]
+            if in_use:
+                raise Exception(  'Some ports were already in use: %s.'
+                                + ', '.join(in_use))
+
     def _start(self, bin=None, args=None, cwd=None, env=None, wait_for_regex=None):
+        self._check_ports()
+
         if not bin:
             bin = self['server_bin']
         if not args:
@@ -27,9 +63,6 @@ class ServerBase(ComponentBase):
             env = self['server_env']
         if not 'port' in self:
             raise Exception('Server starting without port...?')
-        if util.is_port_in_use(self['port']):
-            raise Exception('Port %d for server "%s" already in use.'
-                            % (self['port'], self.name))
         if not wait_for_regex and 'wait_for_regex' in self:
             wait_for_regex = self['wait_for_regex']
 
