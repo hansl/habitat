@@ -45,3 +45,14 @@ class DjangoServer(PythonServer):
                     env=component._env,
                     deps=component.deps
                 ).cycle()
+
+        @staticmethod
+        def shell(component):
+            DjangoCommand(
+                    'shell',
+                    name=component.name + '_Shell',
+                    habitat=component.habitat,
+                    interactive=True,
+                    env=component._env,
+                    deps=component.deps
+                ).cycle()
