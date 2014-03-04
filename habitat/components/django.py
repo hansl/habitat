@@ -56,3 +56,14 @@ class DjangoServer(PythonServer):
                     env=component._env,
                     deps=component.deps
                 ).cycle()
+
+        @staticmethod
+        def test(component, *args):
+            DjangoCommand(
+                    'test', *args,
+                    name=component.name + '_Test',
+                    habitat=component.habitat,
+                    interactive=True,
+                    env=component._env,
+                    deps=component.deps
+                ).cycle()
