@@ -37,4 +37,4 @@ class PipUpdater(Updater):
 
     def update(self):
         self._env.execute_or_die(cmd=[
-            'pip', 'install', '--upgrade', '-r%s' % (self['pip_requirement'])])
+            'pip', 'install', '-q', '--upgrade', '-r%s' % (self['pip_requirement'])])
