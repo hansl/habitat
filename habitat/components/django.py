@@ -67,3 +67,16 @@ class DjangoServer(PythonServer):
                     env=component._env,
                     deps=component.deps
                 ).cycle()
+
+        @staticmethod
+        def raw(component, *args):
+            """Execute a raw command by passing all arguments directly to
+               manage."""
+            DjangoCommand(
+                    *args,
+                    name=component.name + '_Raw',
+                    habitat=component.habitat,
+                    interactive=True,
+                    env=component._env,
+                    deps=component.deps
+                ).cycle()
