@@ -243,3 +243,13 @@ class Habitat(ComponentBase):
                 doc = textwrap.fill(doc, 60, subsequent_indent=' ' * (length + 4))
                 print format_str % (method, doc)
 
+            print '-' * (length + 70)
+            print
+            print '  Components with commands:'
+            components = [
+                '%-25s' % (k,)
+                for k, v in habitat.get_all_components().iteritems()
+                if (    hasattr(v, 'Commands')
+                    and len([c for c in dir(v.Commands) if not c.startswith('_')]))
+            ]
+            print '      %s' % (textwrap.fill(' '.join(components), 80, subsequent_indent='      '),)
