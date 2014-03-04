@@ -10,4 +10,4 @@ class Installer(InstallerBase):
     def is_installed(self):
         return os.path.exists(self['virtualenv_root'])
     def install(self):
-        self._env.execute_or_die('virtualenv', self['virtualenv_root'])
+        self._env.execute_or_die(['virtualenv', self['virtualenv_root'], '-q'])
