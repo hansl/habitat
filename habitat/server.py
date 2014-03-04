@@ -42,10 +42,10 @@ class ServerBase(ComponentBase):
             port = self['port']
             if not isinstance(port, list):
                 port = [port]
-            in_use = [p for p in port if util.is_port_in_use(p)]
+            in_use = [str(p) for p in port if util.is_port_in_use(p)]
             if in_use:
                 raise Exception(  'Some ports were already in use: %s.'
-                                + ', '.join(in_use))
+                                % ', '.join(in_use))
 
     def _start(self, bin=None, args=None, cwd=None, env=None, wait_for_regex=None):
         self._check_ports()
