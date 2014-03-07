@@ -95,11 +95,11 @@ class EnvironmentBase(ComponentBase):
 
     class Commands(ComponentBase.Commands):
         @staticmethod
-        def shell(habitat):
+        def shell(component):
             """Start a shell in the Space virtual environment."""
-            habitat.virtualenv.start()
-            habitat.virtualenv.execute_interactive(['bash', '-i'])
-            habitat.virtualenv.stop()
+            component.start()
+            component.execute_interactive(['bash', '-i'])
+            component.stop()
 
 
 class SystemEnvironment(EnvironmentBase):
