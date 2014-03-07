@@ -93,6 +93,14 @@ class EnvironmentBase(ComponentBase):
             path_list += args
         env[name] = os.pathsep.join(path_list)
 
+    class Commands(ComponentBase.Commands):
+        @staticmethod
+        def shell(habitat):
+            """Start a shell in the Space virtual environment."""
+            habitat.virtualenv.start()
+            habitat.virtualenv.execute_interactive(['bash', '-i'])
+            habitat.virtualenv.stop()
+
 
 class SystemEnvironment(EnvironmentBase):
     """The most basic environment.
