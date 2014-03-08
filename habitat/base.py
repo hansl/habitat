@@ -96,7 +96,7 @@ class ComponentBase(KeyValueStore):
         for dep in self.deps:
             dep.start()
 
-        print 'Starting component "%s"...' % (self.name, )
+        print 'Starting component "%s"...' % (self['name'], )
         self._start()
         self._state = ComponentState.RUNNING
     def stop(self, force=False):
