@@ -42,6 +42,33 @@ class PipUpdater(Updater):
             'pip', 'install', '-q', '--upgrade', '-r%s' % (self['pip_requirement'])])
 
 
+class NpmUpdater(Updater):
+    class KeyValueDefault:
+        npm_root = '%(habitat_root)s'
+
+    def version(self):
+        with open(self['npm_json_path'], 'r') as fin:
+            npm_file = json.load(fin)
+        return npm_file['version']
+
+    def update(self):
+        root = self['npm_root']
+        component = os.path.dirname(self['npm_json_path'])
+
+        # Check if need an install.
+        with open(self['npm_json_path'], 'r') as fin:
+            npm_file = json.load(fin)
+
+        component_path = os.path.join(self['npm_root'], 'npm_components', npm_file['name'])
+
+        if os.path.isdir(component_path):
+            command = 'update'
+        else:
+            command = 'install'
+
+        self.execute_or_die(cmd=['npm', command, '--color=false', component], cwd=root)
+
+
 class BowerUpdater(Updater):
     class KeyValueDefault:
         bower_root = '%(habitat_root)s'
