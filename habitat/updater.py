@@ -45,6 +45,7 @@ class PipUpdater(Updater):
 class NpmUpdater(Updater):
     class KeyValueDefault:
         npm_root = '%(habitat_root)s'
+        npm_global = False
 
     def version(self):
         with open(self['npm_json_path'], 'r') as fin:
@@ -66,7 +67,16 @@ class NpmUpdater(Updater):
         else:
             command = 'install'
 
-        self.execute_or_die(cmd=['npm', command, '--color=false', component], cwd=root)
+        arguments = [
+            '--loglevel=error',
+            '--color=false'
+        ]
+        if self['npm_global']:
+            arguments += ['-g']
+
+        self.execute_or_die(
+            cmd=['npm', command, component] + arguments,
+            cwd=root)
 
 
 class BowerUpdater(Updater):
