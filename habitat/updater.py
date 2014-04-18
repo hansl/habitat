@@ -98,9 +98,6 @@ class BowerUpdater(Updater):
 
         component_path = os.path.join(self['bower_root'], 'bower_components', bower_file['name'])
 
-        if os.path.isdir(component_path):
-            command = 'update'
-        else:
-            command = 'install'
+        command = 'install'
 
         self.execute_or_die(cmd=['bower', command, component], cwd=root)
