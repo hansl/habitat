@@ -32,6 +32,17 @@ class Updater(ComponentBase):
             self.update()
             self.metadata['version'] = version
 
+    class Commands(ComponentBase.Commands):
+        @staticmethod
+        def force_update(component):
+            version = component.version()
+            if not isinstance(version, LooseVersion):
+                version = LooseVersion(version)
+            print '[%s] Updating to version: %s.' % (component.name, version)
+
+            component.update()
+            component.metadata['version'] = version
+
 
 class PipUpdater(Updater):
     def version(self):
