@@ -21,7 +21,9 @@ class Updater(ComponentBase):
         if not isinstance(version, LooseVersion):
             version = LooseVersion(version)
 
-        if 'version' not in self.metadata:
+        if self.get('force_update', False):
+            should_update = True
+        elif 'version' not in self.metadata:
             should_update = True
         else:
             should_update = self.metadata['version'] < version
@@ -38,7 +40,12 @@ class Updater(ComponentBase):
             version = component.version()
             if not isinstance(version, LooseVersion):
                 version = LooseVersion(version)
-            print '[%s] Updating to version: %s.' % (component.name, version)
+
+            if 'version' not in component.metadata:
+                print '[%s] Updating to version: %s.' % (component.name, version)
+            else:
+                print '[%s] Updating to version: %s (from %s).' % (
+                        component.name, version, component.metadata['version'])
 
             component.update()
             component.metadata['version'] = version
@@ -50,7 +57,7 @@ class PipUpdater(Updater):
 
     def update(self):
         self._env.execute_or_die(cmd=[
-            'pip', 'install', '-q', '--upgrade', '-r%s' % (self['pip_requirement'])])
+            'pip', 'install', '--upgrade', '-r%s' % (self['pip_requirement'])])
 
 
 class NpmUpdater(Updater):
