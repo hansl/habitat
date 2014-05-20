@@ -150,6 +150,9 @@ class KeyValueStore(object):
             self.__kwargs[key] = value
         return value
 
+    def get(self, key, default_value=None):
+        return self.__resolve_value(key, self, self, default_value)
+
     @property
     def parent(self):
         return self.__parent
