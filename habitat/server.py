@@ -32,6 +32,11 @@ def _random_port_for_component(component, nb):
 class ServerBase(ComponentBase):
     server_cwd = None
 
+    class KeyValueDefault:
+        nb_ports = 1
+        server_args = []
+        server_env = {}
+
     def random_port(self, nb=1):
         return _random_port_for_component(self, nb)
 

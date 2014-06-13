@@ -152,6 +152,8 @@ class KeyValueStore(object):
 
     def get(self, key, default_value=None):
         return self.__resolve_value(key, self, self, default_value)
+    def format(self, str):
+        return self.__format_value(str, self, self)
 
     @property
     def parent(self):

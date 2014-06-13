@@ -12,4 +12,5 @@ from updater import *
 # Third party related components.
 from components import django
 from components import elasticsearch
+from components import rabbitmq
 from components import virtualenv

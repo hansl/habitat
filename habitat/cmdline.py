@@ -7,6 +7,7 @@ import signal
 
 class CommandLineTool(ComponentBase):
     def _start(self, bin=None, args=None, cwd=None, env=None):
+        daemon = False
         if not bin:
             bin = self['tool_bin']
         if not args:
@@ -18,12 +19,20 @@ class CommandLineTool(ComponentBase):
             cwd = self['tool_cwd']
         if not env and 'tool_env' in self:
             env = self['tool_env']
-        interactive = 'interactive' in self and self['interactive']
-        self.thread, self.process = self.execute_or_die(cmd=[bin] + args,
-                                                        cwd=cwd,
-                                                        env=env,
-                                                        interactive=interactive)
 
+        daemon = 'daemon' in self and self['daemon']
+        interactive = 'interactive' in self and self['interactive']
+
+        if daemon:
+            self.thread, self.process = self.execute_in_thread(cmd=[bin] + args,
+                                                               cwd=cwd,
+                                                               env=env,
+                                                               interactive=interactive)
+        else:
+            self.thread, self.process = self.execute_or_die(cmd=[bin] + args,
+                                                            cwd=cwd,
+                                                            env=env,
+                                                            interactive=interactive)
 
 class PythonCommandLineTool(CommandLineTool):
     def _start(self):
