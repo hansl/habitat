@@ -23,10 +23,12 @@ import threading
 
 
 try:
-    from Queue import Queue, Empty
+    from Queue import Empty
+    from Queue import Queue
 except ImportError:
     # python 3.x
-    from queue import Queue, Empty
+    from queue import Empty
+    from queue import Queue
 
 
 class Habitat(ComponentBase):

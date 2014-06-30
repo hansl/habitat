@@ -1,7 +1,8 @@
 # Copyright (C) 2014 Coders at Work
 from base import ComponentBase
 from environment import SystemEnvironment
-from metadata import MetaDataFile, PythonCommentStorage
+from metadata import MetaDataFile
+from metadata import PythonCommentStorage
 
 from distutils.version import LooseVersion
 
