@@ -116,22 +116,22 @@ class ComponentBase(KeyValueStore):
     def execute(self, **kwargs):
         if self._env is None:
             raise Exception('No environment.')
-        return self._env.execute(**kwargs)
+        return self._env.execute(component=self, **kwargs)
 
     def execute_or_die(self, **kwargs):
         if self._env is None:
             raise Exception('No environment.')
-        return self._env.execute_or_die(**kwargs)
+        return self._env.execute_or_die(component=self, **kwargs)
 
     def execute_interactive(self, **kwargs):
         if self._env is None:
             raise Exception('No environment.')
-        return self._env.execute_interactive(**kwargs)
+        return self._env.execute_interactive(component=self, **kwargs)
 
     def execute_in_thread(self, **kwargs):
         if self._env is None:
             raise Exception('No environment.')
-        return self._env.execute_in_thread(**kwargs)
+        return self._env.execute_in_thread(component=self, **kwargs)
 
     # KeyValue related functions.
     def env(self):

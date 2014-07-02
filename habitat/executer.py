@@ -18,6 +18,14 @@ except ImportError:
 
 
 class Executer(object):
+    def __init__(self, component):
+        self.component = component
+        if component:
+            self.name = component['name']
+        else:
+            self.name = '[Unknown]'
+        super(Executer, self).__init__()
+
     # Execution of commands.
     def __open_process(self, logger, cmd, env, cwd, **kwargs):
         if logger:
@@ -45,13 +53,19 @@ class Executer(object):
             close_fds=True)
         return (process, (master_out_fd, slave_out_fd), (master_err_fd, slave_err_fd))
 
-    def __exec_thread_main(self, logger, process, stdoutFn=None, stderrFn=None, endFn=None, errFn=None):
+    def __exec_thread_main(self, logger, process,
+                                 stdoutFn=None, stderrFn=None,
+                                 endFn=None, errFn=None,
+                                 component=None):
         try:
             process, out_fd, err_fd = process
 
             master_out_fd, slave_out_fd = out_fd
             master_err_fd, slave_err_fd = err_fd
             inputs = [master_out_fd, master_err_fd]
+            name = '[Unknown]'
+            if component:
+                name = component['name']
 
             while True:
                 readables, _, _ = select.select(inputs, [], [], 0.1)
@@ -62,14 +76,14 @@ class Executer(object):
                             if logger:
                                 logger.info(data)
                             for line in data.rstrip().split('\n'):
-                                print 'OUT: %s' % (line,)
+                                print 'OUT(%-16s): %s' % (name, line,)
                     elif fd == master_err_fd:
                         data = os.read(master_err_fd, 1024)
                         if not stderrFn or bool(stderrFn(data)):
                             if logger:
                                 logger.error(data)
                             for line in data.rstrip().split('\n'):
-                                print 'ERR: %s' % (line,)
+                                print 'ERR(%-16s): %s' % (name, line,)
 
                 if process.poll() is not None:
                     # We're done.
@@ -91,7 +105,8 @@ class Executer(object):
         process = self.__open_process(logger, cmd, env, cwd, **kwargs)
         thread = threading.Thread(
             target=self.__exec_thread_main,
-            args=(logger, process, stdoutFn, stderrFn))
+            args=(logger, process, stdoutFn, stderrFn),
+            kwargs={'component': kwargs.get('component', None)})
         thread.start()
         return (thread, process[0])
 
@@ -99,20 +114,25 @@ class Executer(object):
         # We can use a local variable since we are joining the thread after.
         self.__stdout = []
         self.__stderr = []
+        component = kwargs.pop('component', None)
+        name = '[Unknown]'
+        if component:
+            name = component['name']
+
         def pipeStdout(msg):
             if interactive:
                 sys.stdout.write(msg)
                 sys.stdout.flush()
             else:
                 for line in msg.split('\n'):
-                    sys.stdout.write('>>> %s\n' % (line))
+                    sys.stdout.write('OUT(%-16s): %s\n' % (name, line))
             self.__stdout.append(msg)
         def pipeStderr(msg):
             if interactive:
                 sys.stderr.write(msg)
             else:
                 for line in msg.split('\n'):
-                    sys.stdout.write('ERR %s\n' % (line))
+                    sys.stdout.write('ERR(%-16s): %s\n' % (name, line))
             self.__stderr.append(msg)
 
         print '... %s' % (cmd,)

@@ -47,9 +47,9 @@ class Habitat(ComponentBase):
         pass
 
     def __init__(self, should_start=True, *args, **kwargs):
-        self.executer = Executer()
         self.habitat_name = self.__class__.__name__
         super(Habitat, self).__init__(name='%(habitat_name)s')
+        self.executer = Executer(self)
         self._args = args
         self._port_map = {}
 
